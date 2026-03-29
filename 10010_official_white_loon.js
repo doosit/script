@@ -1,17 +1,17 @@
 /*
-联通官方白名单修正 - Loon 专用版
+联通WIFI通话 - Loon 脚本版
 
 Loon 配置示例：
 
 [Script]
-http-response ^https:\/\/m\.client\.10010\.com\/edopinterface\/officialWhite\/checkOfficialWhitePhone(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/10010_official_white_loon.js,requires-body=true,timeout=10,tag=联通白名单修正,enable=true
+http-response ^https:\/\/m\.client\.10010\.com\/edopinterface\/officialWhite\/checkOfficialWhitePhone(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/10010_official_white_loon.js,requires-body=true,timeout=10,tag=联通WIFI通话,enable=true
 
 [MITM]
 hostname = m.client.10010.com
 */
 
 (function () {
-  var tag = "联通白名单强制修正";
+  var tag = "联通WIFI通话";
   var body = $response.body;
 
   if (!body) {
