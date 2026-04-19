@@ -1,0 +1,10 @@
+#!name=奈雪点单赠送开关
+#!desc=拦截 getCouponList 接口，将 supportGive 强制改为 true。
+#!author=doosit
+#!homepage=https://github.com/doosit/script
+
+[Script]
+http-response ^https:\/\/tm-api\.pin-dao\.cn\/coupon\/coupon\/getCouponList(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/naixue_support_give_loon.js,requires-body=true,timeout=10,tag=奈雪点单赠送开关,enable=true
+
+[MITM]
+hostname = tm-api.pin-dao.cn
