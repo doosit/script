@@ -1,5 +1,5 @@
 #!name=四川联通特惠资格
-#!desc=重写 sclyh.169ol.com 商品详情资格接口，补齐 goodsProductList，去掉加载时“暂时不满足活动办理条件”弹框限制。
+#!desc=重写 sclyh.169ol.com 商品详情资格接口，补齐完整商品详情，去掉加载时“暂时不满足活动办理条件”弹框限制并继续进入办理流程。
 #!author=doosit
 #!homepage=https://github.com/doosit/script
 
