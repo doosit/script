@@ -1,0 +1,10 @@
+#!name=四川联通特惠资格
+#!desc=重写 sclyh.169ol.com 商品详情资格接口，补齐 goodsProductList，去掉加载时“暂时不满足活动办理条件”弹框限制。
+#!author=doosit
+#!homepage=https://github.com/doosit/script
+
+[Script]
+http-response ^https:\/\/sclyh\.169ol\.com\/2b2c-mobile\/goods\/getGoodsDetailInfo(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/sclyh_169ol_no_target_loon.js,requires-body=true,timeout=10,tag=四川联通特惠资格,enable=true
+
+[MITM]
+hostname = sclyh.169ol.com
