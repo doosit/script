@@ -1,11 +1,11 @@
 #!name=中国移动确认办理检测绕过
-#!desc=针对 wx.10086.cn 新零售 nrapigate 页面，学习同会话成功密文并替换 productPreCheck/failedOrder 检测响应，避免加载后“确认办理”被置灰。
+#!desc=针对 wx.10086.cn 新零售 nrapigate 页面，学习同会话成功密文并替换 checkAgreement/productPreCheck/failedOrder 检测响应，避免加载后“确认办理”被置灰及设备月办理数上限限制。
 #!author=doosit
 #!homepage=https://github.com/doosit/script
 
 [Script]
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrpromotion\/atom\/courtesy\/hcByNorm(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测学习,enable=true
-http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
+http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrzone\/tczq\/checkAgreement|nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
 
 [MITM]
 hostname = wx.10086.cn

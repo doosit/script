@@ -3,14 +3,14 @@
 
 思路：
 1. 页面加载早期会请求 hcByNorm，该响应是同一会话可解密的短成功密文。
-2. productPreCheck 和 failedOrder/check 是会把“确认办理”置灰的检测链。
-3. 不解密、不伪造明文字段，只复用同会话成功密文，避免会话密钥不一致。
+2. checkAgreement、productPreCheck 和 failedOrder/check 是会把“确认办理”置灰的检测链。
+3. 不解密、不伪造明文字段；同形态接口优先复用同会话成功密文，协议/设备检查使用已抓到的通过态密文。
 
 Loon 配置示例：
 
 [Script]
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrpromotion\/atom\/courtesy\/hcByNorm(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测学习,enable=true
-http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
+http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrzone\/tczq\/checkAgreement|nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
 
 [MITM]
 hostname = wx.10086.cn
@@ -21,6 +21,8 @@ hostname = wx.10086.cn
   var storeKey = "cmcc_nr_success_cipher";
   var fallbackSuccessCipher =
     "JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KETDvIhJMvHLvC6vN4HHRR";
+  var checkAgreementSuccessCipher =
+    "JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KEGSZzacxGO_XgNzD6dUCbsYyT6KjQuZ9iE7-3ZzBOQqaWNrMwLU6Wk0vq0TvqMvaAbfo9_yjxVzF1hhp4eNVygv2wu-wrjqK4NRb6ve3EeA==";
   var url =
     typeof $request !== "undefined" && $request && $request.url
       ? String($request.url)
@@ -36,6 +38,12 @@ hostname = wx.10086.cn
 
   function isDetectUrl(value) {
     return /\/website\/nrapigate\/(?:nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?|$)/.test(
+      value
+    );
+  }
+
+  function isCheckAgreementUrl(value) {
+    return /\/website\/nrapigate\/nrzone\/tczq\/checkAgreement(?:\?|$)/.test(
       value
     );
   }
@@ -109,6 +117,13 @@ hostname = wx.10086.cn
         "] 已替换检测响应，来源=" +
         (successCipher === learnedCipher ? "当前会话" : "内置兜底")
     );
+    $done({ body: JSON.stringify(data) });
+    return;
+  }
+
+  if (isCheckAgreementUrl(url)) {
+    data.body = checkAgreementSuccessCipher;
+    console.log("[" + tag + "] 已替换协议/设备检查响应");
     $done({ body: JSON.stringify(data) });
     return;
   }
