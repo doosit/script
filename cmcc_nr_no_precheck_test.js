@@ -9,6 +9,8 @@ const NO_BUSINESS_HAR_PATH =
   "/Users/satan/Downloads/StormSniffer-20260529-004239.har";
 const HIDDEN_CONTINUE_HAR_PATH =
   "/Users/satan/Downloads/StormSniffer-20260529-121255.har";
+const PACKAGE_LIST_HAR_PATH =
+  "/Users/satan/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/passes_9787/temp/RWTemp/2026-05/c11c3dcf580a0a788e9ce5656dd2a8b3/apicatcher-export-20260529下午03027.har";
 const SCRIPT_PATH = path.join(ROOT, "cmcc_nr_no_precheck_loon.js");
 
 function readHarEntry(pathPart, harPath = HAR_PATH) {
@@ -217,6 +219,19 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
     JSON.stringify(names),
     JSON.stringify(["其他套餐", "智慧爱家成员资费"])
   );
+}
+
+{
+  const target = readHarEntry(
+    "/nrzone/contact/waterFallInfo",
+    PACKAGE_LIST_HAR_PATH
+  );
+  const rewriteResult = runLoonScript(
+    target.url,
+    JSON.stringify({ body: "X".repeat(160) }),
+    {}
+  );
+  assert.strictEqual(rewriteResult.body, target.body);
 }
 
 console.log("cmcc_nr_no_precheck_test passed");
