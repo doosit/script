@@ -232,6 +232,71 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
 }
 
 {
+  const html =
+    '<!doctype html><html><body><div class="modal"><h2>套餐变更提醒</h2><p>智慧爱家成员资费</p><button class="disabled" aria-disabled="true">咨询专属客服</button></div></body></html>';
+  const result = runLoonScript(
+    "https://wx.10086.cn/nr/package.html",
+    html,
+    {},
+    { "Content-Type": "text/html" }
+  );
+  const injected = extractInjectedScript(result.body);
+  const button = {
+    innerText: "咨询专属客服",
+    textContent: "咨询专属客服",
+    value: "",
+    style: { setProperty(name, value) { this[name] = value; } },
+    className: "disabled",
+    classList: {
+      remove(name) {
+        if (name === "disabled") {
+          button.className = "";
+        }
+      },
+    },
+    parentElement: null,
+    removeAttribute(name) {
+      delete this[name];
+    },
+    setAttribute(name, value) {
+      this[name] = value;
+    },
+    addEventListener() {},
+    querySelectorAll() {
+      return [];
+    },
+  };
+  const body = {
+    innerText: "套餐变更提醒 智慧爱家成员资费 咨询专属客服",
+    textContent: "套餐变更提醒 智慧爱家成员资费 咨询专属客服",
+  };
+  const sandbox = {
+    window: {
+      getComputedStyle() {
+        return { display: "block" };
+      },
+    },
+    document: {
+      body,
+      readyState: "complete",
+      documentElement: body,
+      querySelectorAll() {
+        return [button];
+      },
+      addEventListener() {},
+    },
+    MutationObserver: function MutationObserver() {
+      this.observe = function observe() {};
+    },
+    setInterval() {},
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(injected, sandbox);
+  assert.strictEqual(button.textContent, "继续办理");
+  assert.strictEqual(button["aria-disabled"], "false");
+}
+
+{
   const target = readHarEntryByPredicate(
     PACKAGE_LIST_HAR_PATH,
     (entry) =>

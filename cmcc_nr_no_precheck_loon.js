@@ -201,7 +201,17 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
       'var words=["继续办理","确认办理","智慧爱家成员资费"];' +
       'var classNames=["disabled","disable","is-disabled","btn-disabled","hidden","hide"];' +
       "function textOf(el){return String((el&&(el.innerText||el.textContent))||'').replace(/\\s+/g,'');}" +
-      "function matched(el){var text=textOf(el);for(var i=0;i<words.length;i++){if(text.indexOf(words[i])>-1){return true;}}return false;}" +
+      "function pageText(){return textOf(document.body||document.documentElement);}" +
+      "function isChangePackageModal(){var text=pageText();return text.indexOf('套餐变更提醒')>-1&&text.indexOf('智慧爱家成员资费')>-1;}" +
+      "function isConsultButton(el){return isChangePackageModal()&&textOf(el).indexOf('咨询专属客服')>-1;}" +
+      "function matched(el){var text=textOf(el);for(var i=0;i<words.length;i++){if(text.indexOf(words[i])>-1){return true;}}return isConsultButton(el);}" +
+      "function setContinueLabel(el){" +
+      "if(!isConsultButton(el)){return;}" +
+      "try{el.setAttribute('data-cmcc-original-text',textOf(el));}catch(e){}" +
+      "try{if('value' in el){el.value='继续办理';}}catch(e){}" +
+      "try{el.innerText='继续办理';el.textContent='继续办理';}catch(e){}" +
+      "try{var children=el.querySelectorAll?el.querySelectorAll('*'):[];for(var i=0;i<children.length;i++){if(textOf(children[i]).indexOf('咨询专属客服')>-1){children[i].innerText='继续办理';children[i].textContent='继续办理';}}}catch(e){}" +
+      "}" +
       "function hasTargetValue(value,depth){" +
       "if(depth<=0||value==null){return false;}" +
       "if(typeof value==='string'){return value.replace(/\\s+/g,'').indexOf('智慧爱家成员资费')>-1;}" +
@@ -228,7 +238,7 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
       "}" +
       "function scan(){" +
       "var nodes=document.querySelectorAll('button,a,div,span,p,li,section,article,view,text');" +
-      "for(var i=0;i<nodes.length;i++){var el=nodes[i];if(!matched(el)){continue;}reveal(el);var parent=el.parentElement;for(var j=0;parent&&j<5;j++){reveal(parent);parent=parent.parentElement;}}" +
+      "for(var i=0;i<nodes.length;i++){var el=nodes[i];if(!matched(el)){continue;}setContinueLabel(el);reveal(el);var parent=el.parentElement;for(var j=0;parent&&j<5;j++){reveal(parent);parent=parent.parentElement;}}" +
       "}" +
       "function install(){" +
       "installFilterPatch();" +
