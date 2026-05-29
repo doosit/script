@@ -114,6 +114,16 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
 }
 
 {
+  const target = readHarEntry("/nrmix/product/prodWithNormList");
+  const rewriteResult = runLoonScript(
+    target.url,
+    JSON.stringify({ body: "X".repeat(4716) }),
+    {}
+  );
+  assert.strictEqual(rewriteResult.body, target.body);
+}
+
+{
   const oldAgreement = readHarEntry("/nrzone/tczq/checkAgreement", HAR_PATH);
   const newAgreement = readHarEntry(
     "/nrzone/tczq/checkAgreement",

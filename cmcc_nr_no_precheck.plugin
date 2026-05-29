@@ -1,5 +1,5 @@
 #!name=中国移动确认办理检测绕过
-#!desc=针对 wx.10086.cn 新零售 nrapigate 页面，学习同会话成功密文并替换 queryAgreement/checkAgreement/productPreCheck/failedOrder 检测响应，同时恢复被前端隐藏、禁用或过滤的“继续办理/确认办理”按钮和“智慧爱家成员资费”套餐项。
+#!desc=针对 wx.10086.cn 新零售 nrapigate 页面，学习同会话成功密文并替换 prodWithNormList/queryAgreement/checkAgreement/productPreCheck/failedOrder 检测响应，同时恢复被前端隐藏、禁用或过滤的“继续办理/确认办理”按钮和“智慧爱家成员资费”套餐项。
 #!author=doosit
 #!homepage=https://github.com/doosit/script
 
@@ -7,7 +7,7 @@
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrpromotion\/atom\/courtesy\/hcByNorm(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测学习,enable=true
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrzone\/contact\/list(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动更多套餐主列表恢复,enable=true
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrzone\/contact\/waterFallInfo(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动更多套餐列表恢复,enable=true
-http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrzone\/tczq\/queryAgreement|nrzone\/tczq\/checkAgreement|nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
+http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrmix\/product\/prodWithNormList|nrzone\/tczq\/queryAgreement|nrzone\/tczq\/checkAgreement|nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
 http-response ^https:\/\/wx\.10086\.cn\/(?!website\/nrapigate\/).*$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动继续办理恢复,enable=true
 http-response ^https:\/\/ha-cmim\.cmcc-cs\.cn(?::\d+)?\/.*$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动继续办理恢复,enable=true
 http-response ^https:\/\/activity\.cmcc-cs\.cn\/.*$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动活动页继续办理恢复,enable=true
