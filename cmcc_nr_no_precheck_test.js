@@ -31,6 +31,16 @@ function readHarEntries(harPath) {
   return har.log.entries || [];
 }
 
+function readHarEntryByPredicate(harPath, predicate, label) {
+  const entry = readHarEntries(harPath).find(predicate);
+  assert(entry, `HAR entry not found: ${label}`);
+  return {
+    url: entry.request.url,
+    body: entry.response.content.text,
+    cipher: JSON.parse(entry.response.content.text).body,
+  };
+}
+
 function runLoonScript(url, body, store, headers = {}) {
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
   let doneValue = null;
@@ -219,6 +229,38 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
     JSON.stringify(names),
     JSON.stringify(["其他套餐", "智慧爱家成员资费"])
   );
+}
+
+{
+  const target = readHarEntryByPredicate(
+    PACKAGE_LIST_HAR_PATH,
+    (entry) =>
+      String(entry.request && entry.request.url).includes(
+        "/nrzone/contact/list"
+      ) &&
+      String(entry.response.content && entry.response.content.text).length >
+        10000,
+    "large contact/list"
+  );
+  const rewriteResult = runLoonScript(
+    target.url,
+    JSON.stringify({ body: "X".repeat(12000) }),
+    {}
+  );
+  assert.strictEqual(rewriteResult.body, target.body);
+}
+
+{
+  const target = readHarEntry(
+    "/nrzone/contact/list",
+    PACKAGE_LIST_HAR_PATH
+  );
+  const rewriteResult = runLoonScript(
+    target.url,
+    JSON.stringify({ body: "X".repeat(160) }),
+    {}
+  );
+  assert.notStrictEqual(rewriteResult.body, target.body);
 }
 
 {
