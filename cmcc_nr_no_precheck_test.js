@@ -150,4 +150,17 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
   assert(result.body.includes("__CMCC_NR_CONTINUE_RESTORE__"));
 }
 
+{
+  const html =
+    '<!doctype html><html><body><ul><li class="hidden" style="display:none">智慧爱家成员资费</li></ul></body></html>';
+  const result = runLoonScript(
+    "https://wx.10086.cn/nr/package.html",
+    html,
+    {},
+    { "Content-Type": "text/html" }
+  );
+  assert.notStrictEqual(result.body, html);
+  assert(result.body.includes('"智慧爱家成员资费"'));
+}
+
 console.log("cmcc_nr_no_precheck_test passed");
