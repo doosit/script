@@ -3,9 +3,9 @@
 
 思路：
 1. 页面加载早期会请求 hcByNorm，该响应是同一会话可解密的短成功密文。
-2. checkAgreement、productPreCheck 和 failedOrder/check 是会把“确认办理”置灰的检测链。
-3. 最新页面只剩 checkAgreement 且仍是通过态时，前端可能直接隐藏“继续办理”或过滤套餐项。
-4. 不解密、不伪造明文字段；checkAgreement 保留可生成套餐变更提醒的通过态密文，再用页面兜底恢复左侧“继续办理”按钮。
+2. queryAgreement、checkAgreement、productPreCheck 和 failedOrder/check 是会影响“继续办理/确认办理”的检测链。
+3. 最新页面会先用 queryAgreement 预置按钮状态，再用 checkAgreement 生成套餐变更提醒弹窗。
+4. 不解密、不伪造明文字段；保留可生成套餐变更提醒的通过态密文，再用页面兜底恢复左侧“继续办理”按钮。
 
 Loon 配置示例：
 
@@ -13,12 +13,12 @@ Loon 配置示例：
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrpromotion\/atom\/courtesy\/hcByNorm(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测学习,enable=true
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrzone\/contact\/list(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动更多套餐主列表恢复,enable=true
 http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/nrzone\/contact\/waterFallInfo(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动更多套餐列表恢复,enable=true
-http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrzone\/tczq\/checkAgreement|nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
+http-response ^https:\/\/wx\.10086\.cn\/website\/nrapigate\/(?:nrzone\/tczq\/queryAgreement|nrzone\/tczq\/checkAgreement|nrmix\/preCheck\/productPreCheck|nropportunity\/atom\/failedOrder\/check)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动办理检测绕过,enable=true
 http-response ^https:\/\/wx\.10086\.cn\/(?!website\/nrapigate\/).*(?:\.html?|\.js|\/)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动继续办理恢复,enable=true
 http-response ^https:\/\/ha-cmim\.cmcc-cs\.cn(?::\d+)?\/.*(?:\.html?|\.js|\/)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_nr_no_precheck_loon.js,requires-body=true,timeout=10,tag=移动继续办理恢复,enable=true
 
 [MITM]
-hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
+hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn, activity.cmcc-cs.cn
 */
 
 (function () {
@@ -28,6 +28,8 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
     "JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KETDvIhJMvHLvC6vN4HHRR";
   var checkAgreementSuccessCipher =
     "JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KEGSZzacxGO_XgNzD6dUCbsYyT6KjQuZ9iE7-3ZzBOQqaWNrMwLU6Wk0vq0TvqMvaAbfo9_yjxVzF1hhp4eNVygv2wu-wrjqK4NRb6ve3EeA==";
+  var queryAgreementSuccessCipher =
+    "JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KEGSZzacxGO_XgNzD6dUCbeq1HZaWhvylMFNN4NGe6a-R1YPyIwVZnxTRrXlwP3YF9g77Pgy1TdyZ8uM7r7t2OyP2zIJYjknS9oXLAeCjUgg==";
   var packageContactListSnapshotChunks = [
     "{\"body\":\"JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KEGSZzacxGO_XgNzD6dUCbbo0wJ0Zb7NgI49W22KXQ03Et4PtxXuMHxQ13gzES8WTOdbJjYxwMA8SMH0aTlJbzsysj3vgneaqNvk8aZTbqLwXrpG_AqbJVb6tS_1fYEtQ35MEiprmZNUpWMgn4dNo67oKT-2II2BFbfmOALC1QkH7vtACw-7jyir-OtFr18H6RiPz6X8S0dC-UHEC7tCOymD2F_PARDYuQrPSsxy6Thny042dSK2onA-QJtoVq-C1C0vmh9gF-VWxt4mECMiXcauGGuQHqZg5jC13dox0IZVspL6gomVc4oItkNL05JZX8mNPutxcGRRYGDCmYWUV0hD9l7OJaXZVV8T3mEJ485fvn6ydFSg3M7RWj7gwE1eTTTx-Z6Dne5JUPk6Fvb8lNkSdKfH1JQ4HWxKuRGiFfcC0XmlK3XBLZo5kHaqPjV1hxzIzkZp7sPd93fAJW8vfUT5m7RQGg_raVlk1gEFbpMRhVw5I7lnus_PXMCyXm5SJQXWoT-ZJdGCVIYV6HzhKStDF8l0HCx16VxpMpfh3Hu_ceC0LAWvIjO0mm4wTsHjyMfMpydcLuzSwbX4wNVBd57Szow5QFKubMD7q1vAEdaNGsivFVgk32VCyqQluvOUEc4ivDoy-ToUkjkfepdAqN51_SAHKMXehA1kNuuvpGeWpH1KdbEoqinOHQP6mEr_cEgEnZsmmGOkjZAeQgP9um2pV_WY0vLgMhAMhhDIxvddaNFFD2wgekmc5hZEcL8D3GS6KyY-QzukKOsW6eAENuzOBfnMbEpc3Nx7pacuSN_JuoMjd-zT0Ynt2BKhoVu6udF6H8JxNseVkl7Jo59N58FRN68hFypuuZsbZACjJeICf0hoES3FkVmolVohCCZpZ4L8umaNR9L7wrFi2PURSt-JudLkqwrltekGotg08_TYUW-fRa8jZxWlKorxjJNwUtw5mOocYgQO1Bbm3MyVLprXV4R9vk8P82kaUvGJ7W6W6ihOi3PEcA0R_ihIh6gWyPiINr_xMCWI-5LGx9OJYOELHjXaz_IbPrz9y3xN23OBoylR9dDbEfL2ff1bfnocFbpynkijaR1LpVOs-vmxuy4bZGtneMWZD2462Xoyu_As-xGz78gYtQAiPA-1bCgFsiaWLzLgopgk0Fg1HksPmCyiUqiaVPVpERM9h5BDo6lie1nEt9cs_2ZjGLPp_RBtuAtYdfIfosiO1GA6nrRXwnpDUaelOtxxtXRiuwRsmLh2T0GwSGc1zdZtsFy-VLFuV7cNz_IOncNQKkDidbmpzxwrUkfVQ_-qP53pAXDwQm2zOzoRIgqqS1wMoVNc3EXGupfKcu97H1r-iqmRr-_JR2r4-i42upjwaq0rHkGd6D141g7d94acY0BR0cSaPxLVARSL1Yy3NGpJuYOBF_4HB2jV-ObWXYxAfFMSO9RACfEAEW2M6QyOlIK0ameppG58yUGmUYJP4KJh1-hDW-2NBBg3jQl2GNOq_eY3j9iZbXu3A2-dENs6lIisKBjjGNEYZDWAXuEhef7Qzgdh9ZbK5qPpJm2YBy6cymFj7_OjRhGZ7tJclbUoR2RStHSoJLx9WHyiglGfnzUq0BhkwfhfzWw7wPQRrFBXD6hoJ07V-cxTZ2egc2XmjK0GEZ-8IJ7OK3qD9QwTnG33JzSnvONZSO5-PwFXkEH2TgyFhcCHxn3-mljjqHOX46OBNAwwXbW6jD8QLYXYMAK3QqzVEDYMeM06VK0fWb8wjJC8hPvKpzgfEX4F6PUpzKK6NXi4yfUDa4W7Pj8LCPf1Y2iJrjF3h4T9IWathy92zQbwhXjKzRjSyLO1IaaJfVpaAyYXgwOL1FZeAEFUCMiRcAVDOQyf2nD4SBaXDcwieok6VBkSexYtQ_lNBvCEmJMuUQIykaMA9ATUMwo68b1wk0C_qZeitcgN88gxOqrLGte8gsu4m9l2ZBJGdtyMq03poNXceSIB3bHK-StPn2wepXRG93O9DCDwiHsTbeqa26g9SsPEhAJ6SWberErw2AowX-kqVj1vbPXB4g-jU69xgqtpqicnEjAjz3sGxU2jtmcBhTb7azh_FcD_y3Fo9oNmGTK0-gYAt8PgK1wOPE-2pT6_7umLzBJKlCoRdl6TFqz1QWvAQ2tV-aXw0hyUbSNDmHz_QF0OvVohYz2Mg2-7P1r3OMSg9PG8xqoiVA9wgJOybZ04djhT1M60OZYN2bXrvbuasAu0rdKWntw6YtUcYAFQspgQG4zH8J-RdxhYiroU7XdSLZzdVZpPk1E0rfToi7akrS5wlxDA1v6M905hmvqXNoBEN-o5RsEJ9zFD9xtn1NxHA0q0KUT8ODouq0F7Kr3NiBoAkKp_GxKv7_IzM761H3XW4uh5dJgXYKBlkopR3zIPIobIV5nEtLvczfcF7uNImZ1PZ4vx9_OM1AXh1y1DHvh_iFu6iT3wpszA7ZNqbCkGEI9E0Y2yL2_lsu0bgTUlby7x6Y0L3zvGm7nJWnEODWoFMC_MyNPh_0Zft8o0yjmiA271AneZf-oWVtASeCuOnn7ew9tAVZYyAqtObRQfByUA0Mpnati2qW-LPXqQeUKCP4n0y8wIGy6kQy8wo8w6TpZZorB9a2FIYB8JCyke2NeMfel6foJ66G2SnNpLealgB1SlMZfOs4vJaZo7ZWgMG-9QNP0lrf5omkAcKAYVqDES6AheJJK2Os4TeVNfyRoFubMJGPytbcbpne0zQFKfz89NKw_cCKwWD9FFeIuDgjerS6dl7OB30g8xKW9Iq2AFwBQFhNb8sR37lvpLPt3zrGIIDsTCCWfEqhIbrm_37ugapqZZsWPyW_mwFKlDGY-SFOjfI-dzTRv_nVdfeoIxwlxlajSeCd4meW0YRVno2J7GXL7b2AemOBxVjTvMkC-QRRWMNzU5IEe46pJwipdfKlAeCd1y7",
     "EIelOAG07CB66uOYiPcuJaP_io1GoXcJ7OjMIfq-0_JYGSGhkR_RoSXx_co0db8tD3ytUkrKGfJ8Yd-Wu8Qeyl5_-CvaWbxxPNohjj-pAF1cR9HMu4j7KVP0nbuwqz7Ezq-kbOsH44SzJpo0z-kIEyfsiZ061W6CnLMis4gxJw1Kq8QFFAShszQF3zCliNCtZzZWDSkPxAt5kw3DXaYuT3nV5pAR7DWrTthzlUK05knckFxL-9a0_jbU5tVh1NpKrGzwBkf570pjEalwhPT6_B9oSm8nHTwAAbQXiW7IUF-XAYZ6FJi-3keDbbCMoSzC0ZoKYcftAVvRsO7V4vYJheukUSWJt5FHBJAVQsJdM1pB_wwFeltSu98b-HtYybgF4y281gtxOOVe1kigmjTjVs-izHC5xGS00TA4n09qHdYrMl6-0wzqL6XF5Mn7V75xwsxrfT6XDtlZSg2uPGl84MRIlSPnOTJoVM7rKh0D2OVK2Z5ePvpNjsfhIG4iTfXeUb41EgBW5mUwpDDRiC_5e2TIuBJit4kHR56orJMcbQybHcYMAtyEUhx95ZE6OeezBbOQbMeVNrzip3e7fcEG-HnoJz9YXFN7rCZPzcMk8v8-6tKgbjflCiSayl-ZxJxdfWNcTz_bv3v4rLsJ_SxYO1Yv7pYBxlUWfwvXmgFJ-tvHIQwh6rlp3qMyK5czyAybwS0z-udxnSmx431k4R7pqePsGfQI0Uag5zoeRG9LRB4gr_jx5jML1uvlKwTQMeTGONjIyPwBtyCC4Oqt6y6EUdK6Yvu374ITRmGWloMk8_933fe7-z59fpP0GhDL9WfzY9Z35lHgi-pzp_P8Gthr7Zi4pSYn1qtgYKwHZ7KzFg17cEvnZSQgjqTT8vUEgfRajTODCofcMToWm7N8lwbB_ciNML7NrdNXmg6Mq0jYMWdwkZBrJLHnFOMDseJUA0DHRGjP0rZq93odz9GYlFbgR5D80VJG7FLLBpGS1Iefm0niZy0gaziUmmFrvZER1ZHqQ-rZRhtX1_iTYEVjuqSu0kE4CoFYFKVpm1QxrdBRsJolIzCNZdNF_N62zO2mbCyViMNf57C_mTxT3M0kud8Iz0aBvHEb5T8s_C6j6tZebfuT9WMtuCO8H-_nB26a5h5hSAqCt9rlV_N0n6h9oyN4s4q84liP0GXzwm-l8d-FFVp0Vl3JtAKX2Fnyj-7FkBA2dnl9RyNO2kS9NTct4-Zns9Ca6EWB2vqD-kOUIEK61goETXB7XRnQuLx_W1giRzcxQLROX9R7G1vq-_z2zHRIO123E-VEjvZZI6drKix73LZZQ6aaE_95xAs08zpi2rdxqevWGs6UHn6xccdspiAMwYaTeseq9aJbi5In3yxgP4IUNWIMQCeIazlz0BXUicgK4D-nw5yQzxBP9fHX_vicqvKbdfKF-kwISLMQWkTpQo8NGCQMd4Prfxm2C9bhtyGQG00ezdmeLue3OF0e_39p2HfR95nkKFUkUseHwok9s6a8HCpB-iG5PrPSEDEil9WrdkQw_usEGPfz4mEjCEX50rqT2GT70eEbAadFiZtJTmqMtNeZfjJr_ihOutmsNz4Yb3I9Hc2cujh9BIvjd6ZHH8a1Xx836lVx72YFSEtHABVl-BYYQf_US9QzmAUnnA3k3Ta7tNB3crEzRSk_CkDDI2HIQqJHh9LhYO_9H3MTw3xWERVVSRjbsPlbadYXv1bqWwQX1qUsnv2EpF8cVKy_6qFPX4aTERn-SOcyG605wRmKSG0guV-5kdIP7uxZsigBWNETtqdlwyGCpSUOhJNB4wfSEEblxRsjZAEHpHtImwEFCT0loQCAOllWC5tU9pPW1V12hcpMDzcr2MChSubI225z6-QK3jrxLtWaSiUFD47Ig5zkYNC9j8_Iybl5YwkwVBzOOWlXetW1OTmwUS4X27t15Po_DVzoYE_hAOsXcl8x0dddwJHjl3s3-y_Nbuyjqf9xwS_mPH-L8-tdmasQWtpKWDeHEChAEeznhNyltIfrT6VzaXd3gkSbxItj5ZNsbNV1fDQ3RsdSzejl27E56gmENz_4idU1Mic4iDDdxKRkrcVSekGoMs7N-HCetY0bd-j9OjWUV4juaNza1jOLknErL_rlQQ_GpznEV_ovEcicin22myCO1Jmn1NxGCA5P1XBXP07SM_nja8FwygwUzB7UNRe_JjC0w04wl3CAExrS7oYINprT81fjVhStyAYDkBMXvgBL6Y6kelafs0Icne4QJtQLXPbrxj2B6K_WzFUWHLiKWhyQWv9ZlpUBLT772TWjdmc5F-qf6qwUbKk6I69RuW-Qwwu6TlNNguPezRxgDTaq9jYt-XePb-xLCi9xHb1V_oberLhwpvY8sSquQbftbJJ64Dfbeo974Oqv494bEXYuPZRL3z8MkRFWxZqEASfBghcdSx7ciLJPFKRS0ReJ2OTYtMcj_YjZIxP4Z64djYQBhV1Qx9B3w3DUOTpvhAoF8240tAglN7KYEBFWLqmcAmmLJWeMKDxwmvc8OZmgvj7TZDACkxqAyPyrmVywtsf2Zo21RIEic_QZMHxjItJd0_wL9scznweXiH7Fw-9NRL0s1W4Oa7VxfriK42KoOFtsFEulsFEemWrB8X7Oy7YPa1QIwky0ZCIuFFsJ67oH2ZfohI-IC3K2EpSMNNacHHO6MO1QmIINSyKAbEr2j9uqqxYduiU8y7pqsnpvAQaSkblZDYnx2Gvd6TdVP3Q9DBnGKJv52LQ2Uz4G3BcfC_-ZKCeVIsrosr48tNiAVeJrd9SSAsh2hFZ2ecu7WKy4D_tKL-tycTTc8x1nTzbaaq1pz6Qp6E_5DBCoJEo8HMQdaBpr1ZlbIYUcYoWcweobEDV_WpPpivmlH74Jz5sfEh7nKvHzrIbud3kFejvydyiknvmbIc4GWkCC593ncK1opmAArpFP8Soxh1scAiHBcPUorUDbNGqQ754JqWDfnqUHAcxD39oWBZml",
@@ -125,6 +127,12 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
 
   function isCheckAgreementUrl(value) {
     return /\/website\/nrapigate\/nrzone\/tczq\/checkAgreement(?:\?|$)/.test(
+      value
+    );
+  }
+
+  function isQueryAgreementUrl(value) {
+    return /\/website\/nrapigate\/nrzone\/tczq\/queryAgreement(?:\?|$)/.test(
       value
     );
   }
@@ -372,6 +380,13 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
   if (isCheckAgreementUrl(url)) {
     data.body = checkAgreementSuccessCipher;
     console.log("[" + tag + "] 已替换套餐变更提醒检查响应");
+    $done({ body: JSON.stringify(data) });
+    return;
+  }
+
+  if (isQueryAgreementUrl(url)) {
+    data.body = queryAgreementSuccessCipher;
+    console.log("[" + tag + "] 已替换套餐协议预查询响应");
     $done({ body: JSON.stringify(data) });
     return;
   }

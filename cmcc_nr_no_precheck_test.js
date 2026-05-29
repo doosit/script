@@ -101,6 +101,19 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
 }
 
 {
+  const rewriteResult = runLoonScript(
+    "https://wx.10086.cn/website/nrapigate/nrzone/tczq/queryAgreement",
+    JSON.stringify({ body: "X".repeat(512) }),
+    {}
+  );
+  const rewritten = JSON.parse(rewriteResult.body);
+  assert.strictEqual(
+    rewritten.body,
+    "JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KEGSZzacxGO_XgNzD6dUCbeq1HZaWhvylMFNN4NGe6a-R1YPyIwVZnxTRrXlwP3YF9g77Pgy1TdyZ8uM7r7t2OyP2zIJYjknS9oXLAeCjUgg=="
+  );
+}
+
+{
   const oldAgreement = readHarEntry("/nrzone/tczq/checkAgreement", HAR_PATH);
   const newAgreement = readHarEntry(
     "/nrzone/tczq/checkAgreement",
