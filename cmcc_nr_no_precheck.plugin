@@ -1,5 +1,5 @@
 #!name=中国移动确认办理检测绕过
-#!desc=针对 wx.10086.cn 新零售 nrapigate 页面，学习同会话成功密文并替换 checkAgreement/productPreCheck/failedOrder 检测响应，同时恢复被前端隐藏/禁用的“继续办理/确认办理”按钮和“智慧爱家成员资费”套餐项。
+#!desc=针对 wx.10086.cn 新零售 nrapigate 页面，学习同会话成功密文并替换 checkAgreement/productPreCheck/failedOrder 检测响应，同时恢复被前端隐藏、禁用或过滤的“继续办理/确认办理”按钮和“智慧爱家成员资费”套餐项。
 #!author=doosit
 #!homepage=https://github.com/doosit/script
 

@@ -4,7 +4,7 @@
 思路：
 1. 页面加载早期会请求 hcByNorm，该响应是同一会话可解密的短成功密文。
 2. checkAgreement、productPreCheck 和 failedOrder/check 是会把“确认办理”置灰的检测链。
-3. 最新页面只剩 checkAgreement 且仍是通过态时，前端可能直接隐藏“继续办理”或套餐项。
+3. 最新页面只剩 checkAgreement 且仍是通过态时，前端可能直接隐藏“继续办理”或过滤套餐项。
 4. 不解密、不伪造明文字段；同形态接口优先复用同会话成功密文，协议/设备检查使用已抓到的通过态密文。
 
 Loon 配置示例：
@@ -119,6 +119,23 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
       'var classNames=["disabled","disable","is-disabled","btn-disabled","hidden","hide"];' +
       "function textOf(el){return String((el&&(el.innerText||el.textContent))||'').replace(/\\s+/g,'');}" +
       "function matched(el){var text=textOf(el);for(var i=0;i<words.length;i++){if(text.indexOf(words[i])>-1){return true;}}return false;}" +
+      "function hasTargetValue(value,depth){" +
+      "if(depth<=0||value==null){return false;}" +
+      "if(typeof value==='string'){return value.replace(/\\s+/g,'').indexOf('智慧爱家成员资费')>-1;}" +
+      "if(typeof value!=='object'){return false;}" +
+      "for(var key in value){try{if(Object.prototype.hasOwnProperty.call(value,key)&&hasTargetValue(value[key],depth-1)){return true;}}catch(e){}}" +
+      "return false;" +
+      "}" +
+      "function installFilterPatch(){" +
+      "if(Array.prototype.__cmccNrPackageFilterPatch){return;}" +
+      "var rawFilter=Array.prototype.filter;" +
+      "try{Object.defineProperty(Array.prototype,'__cmccNrPackageFilterPatch',{value:true,configurable:false});}catch(e){Array.prototype.__cmccNrPackageFilterPatch=true;}" +
+      "Array.prototype.filter=function(callback,thisArg){" +
+      "var result=rawFilter.call(this,callback,thisArg);" +
+      "try{for(var i=0;i<this.length;i++){var item=this[i];if(hasTargetValue(item,4)&&result.indexOf(item)===-1){result.push(item);}}}catch(e){}" +
+      "return result;" +
+      "};" +
+      "}" +
       "function reveal(el){" +
       "if(!el){return;}" +
       "try{el.disabled=false;}catch(e){}" +
@@ -131,6 +148,7 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
       "for(var i=0;i<nodes.length;i++){var el=nodes[i];if(!matched(el)){continue;}reveal(el);var parent=el.parentElement;for(var j=0;parent&&j<5;j++){reveal(parent);parent=parent.parentElement;}}" +
       "}" +
       "function install(){" +
+      "installFilterPatch();" +
       "scan();" +
       "try{new MutationObserver(scan).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class','disabled','aria-disabled','aria-hidden']});}catch(e){}" +
       "try{setInterval(scan,800);}catch(e){}" +
@@ -147,13 +165,19 @@ hostname = wx.10086.cn, ha-cmim.cmcc-cs.cn
     var source = continueRestorerSource();
     if (looksLikeHtml(text)) {
       var injection = "<script>" + source + "</script>";
+      if (/<head[^>]*>/i.test(text)) {
+        return text.replace(/<head([^>]*)>/i, "<head$1>" + injection);
+      }
+      if (/<script[\s>]/i.test(text)) {
+        return text.replace(/<script/i, injection + "<script");
+      }
       if (/<\/body>/i.test(text)) {
         return text.replace(/<\/body>/i, injection + "</body>");
       }
       return text + injection;
     }
     if (looksLikeScript(url)) {
-      return text + "\n;" + source + "\n";
+      return source + "\n;" + text + "\n";
     }
     return text;
   }

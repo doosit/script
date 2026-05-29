@@ -54,6 +54,14 @@ function runLoonScript(url, body, store, headers = {}) {
   return doneValue;
 }
 
+function extractInjectedScript(html) {
+  const match = String(html).match(
+    /<script>([\s\S]*__CMCC_NR_CONTINUE_RESTORE__[\s\S]*?)<\/script>/
+  );
+  assert(match, "injected script not found");
+  return match[1];
+}
+
 function assertReplacedWithLearnedSuccess(pathPart) {
   const store = {};
   const success = readHarEntry("/nrpromotion/atom/courtesy/hcByNorm");
@@ -161,6 +169,54 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
   );
   assert.notStrictEqual(result.body, html);
   assert(result.body.includes('"智慧爱家成员资费"'));
+}
+
+{
+  const html =
+    '<!doctype html><html><body><div id="packages"></div></body></html>';
+  const result = runLoonScript(
+    "https://wx.10086.cn/nr/package.html",
+    html,
+    {},
+    { "Content-Type": "text/html" }
+  );
+  const injected = extractInjectedScript(result.body);
+  const sandbox = {
+    window: {
+      getComputedStyle() {
+        return { display: "block" };
+      },
+    },
+    document: {
+      readyState: "complete",
+      documentElement: {},
+      querySelectorAll() {
+        return [];
+      },
+      addEventListener() {},
+    },
+    MutationObserver: function MutationObserver() {
+      this.observe = function observe() {};
+    },
+    setInterval() {},
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(injected, sandbox);
+  const names = vm.runInContext(
+    `[
+      { name: "其他套餐", show: true },
+      { name: "智慧爱家成员资费", show: false }
+    ].filter(function (item) {
+      return item.show;
+    }).map(function (item) {
+      return item.name;
+    })`,
+    sandbox
+  );
+  assert.strictEqual(
+    JSON.stringify(names),
+    JSON.stringify(["其他套餐", "智慧爱家成员资费"])
+  );
 }
 
 console.log("cmcc_nr_no_precheck_test passed");
