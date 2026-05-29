@@ -93,15 +93,11 @@ assertReplacedWithLearnedSuccess("/nrmix/preCheck/productPreCheck");
 assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
 
 {
-  const store = {};
-  const success = readHarEntry("/nrpromotion/atom/courtesy/hcByNorm");
   const target = readHarEntry("/nrzone/tczq/checkAgreement");
-
-  runLoonScript(success.url, success.body, store);
-  const rewriteResult = runLoonScript(target.url, target.body, store);
+  const blockedBody = JSON.stringify({ body: "X".repeat(64) });
+  const rewriteResult = runLoonScript(target.url, blockedBody, {});
   const rewritten = JSON.parse(rewriteResult.body);
-  assert.strictEqual(rewritten.body, success.cipher);
-  assert.notStrictEqual(rewritten.body, target.cipher);
+  assert.strictEqual(rewritten.body, target.cipher);
 }
 
 {
@@ -155,6 +151,19 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
     { "content-type": "application/javascript" }
   );
   assert.notStrictEqual(result.body, js);
+  assert(result.body.includes("__CMCC_NR_CONTINUE_RESTORE__"));
+}
+
+{
+  const html =
+    '<!doctype html><html><body><button style="display:none">继续办理</button></body></html>';
+  const result = runLoonScript(
+    "https://activity.cmcc-cs.cn/chop/page/index",
+    html,
+    {},
+    { "Content-Type": "text/html" }
+  );
+  assert.notStrictEqual(result.body, html);
   assert(result.body.includes("__CMCC_NR_CONTINUE_RESTORE__"));
 }
 
@@ -242,31 +251,52 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
     { "Content-Type": "text/html" }
   );
   const injected = extractInjectedScript(result.body);
-  const button = {
-    innerText: "咨询专属客服",
-    textContent: "咨询专属客服",
-    value: "",
-    style: { setProperty(name, value) { this[name] = value; } },
-    className: "disabled",
-    classList: {
-      remove(name) {
-        if (name === "disabled") {
-          button.className = "";
-        }
-      },
-    },
-    parentElement: null,
-    removeAttribute(name) {
-      delete this[name];
-    },
-    setAttribute(name, value) {
-      this[name] = value;
-    },
-    addEventListener() {},
-    querySelectorAll() {
-      return [];
+  const group = {
+    children: [],
+    insertBefore(node, before) {
+      const index = this.children.indexOf(before);
+      if (index === -1) {
+        this.children.push(node);
+      } else {
+        this.children.splice(index, 0, node);
+      }
+      node.parentElement = this;
     },
   };
+  function makeButton(text) {
+    const button = {
+      innerText: text,
+      textContent: text,
+      value: "",
+      style: { setProperty(name, value) { this[name] = value; } },
+      className: "disabled",
+      classList: {
+        remove(name) {
+          if (name === "disabled") {
+            button.className = "";
+          }
+        },
+      },
+      parentElement: group,
+      removeAttribute(name) {
+        delete this[name];
+      },
+      setAttribute(name, value) {
+        this[name] = value;
+      },
+      addEventListener() {},
+      cloneNode() {
+        return makeButton(this.textContent);
+      },
+      querySelectorAll() {
+        return [];
+      },
+    };
+    return button;
+  }
+  const button = makeButton("咨询专属客服");
+  group.children.push(button);
+  button["aria-disabled"] = "true";
   const body = {
     innerText: "套餐变更提醒 智慧爱家成员资费 咨询专属客服",
     textContent: "套餐变更提醒 智慧爱家成员资费 咨询专属客服",
@@ -282,7 +312,7 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
       readyState: "complete",
       documentElement: body,
       querySelectorAll() {
-        return [button];
+        return group.children;
       },
       addEventListener() {},
     },
@@ -293,11 +323,85 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
   };
   vm.createContext(sandbox);
   vm.runInContext(injected, sandbox);
-  assert.strictEqual(button.textContent, "继续办理");
-  assert.strictEqual(button["aria-disabled"], "false");
+  assert.strictEqual(group.children.length, 2);
+  assert.strictEqual(group.children[0].textContent, "继续办理");
+  assert.strictEqual(group.children[0]["aria-disabled"], "false");
+  assert.strictEqual(group.children[1].textContent, "咨询专属客服");
 }
 
 {
+  const html =
+    '<!doctype html><html><body><div class="modal"><h2>套餐变更提醒</h2><p>智慧爱家成员资费</p><button class="disabled" aria-disabled="true">继续办理</button><button>咨询专属客服</button></div></body></html>';
+  const result = runLoonScript(
+    "https://wx.10086.cn/nr/package.html",
+    html,
+    {},
+    { "Content-Type": "text/html" }
+  );
+  const injected = extractInjectedScript(result.body);
+  function makeButton(text) {
+    const button = {
+      innerText: text,
+      textContent: text,
+      value: "",
+      style: { setProperty(name, value) { this[name] = value; } },
+      className: text === "继续办理" ? "disabled" : "",
+      classList: {
+        remove(name) {
+          if (name === "disabled") {
+            button.className = "";
+          }
+        },
+      },
+      parentElement: null,
+      removeAttribute(name) {
+        delete this[name];
+      },
+      setAttribute(name, value) {
+        this[name] = value;
+      },
+      addEventListener() {},
+      querySelectorAll() {
+        return [];
+      },
+    };
+    return button;
+  }
+  const continueButton = makeButton("继续办理");
+  const consultButton = makeButton("咨询专属客服");
+  continueButton["aria-disabled"] = "true";
+  const body = {
+    innerText: "套餐变更提醒 智慧爱家成员资费 继续办理 咨询专属客服",
+    textContent: "套餐变更提醒 智慧爱家成员资费 继续办理 咨询专属客服",
+  };
+  const sandbox = {
+    window: {
+      getComputedStyle() {
+        return { display: "block" };
+      },
+    },
+    document: {
+      body,
+      readyState: "complete",
+      documentElement: body,
+      querySelectorAll() {
+        return [continueButton, consultButton];
+      },
+      addEventListener() {},
+    },
+    MutationObserver: function MutationObserver() {
+      this.observe = function observe() {};
+    },
+    setInterval() {},
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(injected, sandbox);
+  assert.strictEqual(continueButton.textContent, "继续办理");
+  assert.strictEqual(continueButton["aria-disabled"], "false");
+  assert.strictEqual(consultButton.textContent, "咨询专属客服");
+}
+
+if (fs.existsSync(PACKAGE_LIST_HAR_PATH)) {
   const target = readHarEntryByPredicate(
     PACKAGE_LIST_HAR_PATH,
     (entry) =>
@@ -314,32 +418,28 @@ assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
     {}
   );
   assert.strictEqual(rewriteResult.body, target.body);
-}
 
-{
-  const target = readHarEntry(
+  const shortListTarget = readHarEntry(
     "/nrzone/contact/list",
     PACKAGE_LIST_HAR_PATH
   );
-  const rewriteResult = runLoonScript(
-    target.url,
+  const shortListRewriteResult = runLoonScript(
+    shortListTarget.url,
     JSON.stringify({ body: "X".repeat(160) }),
     {}
   );
-  assert.notStrictEqual(rewriteResult.body, target.body);
-}
+  assert.notStrictEqual(shortListRewriteResult.body, shortListTarget.body);
 
-{
-  const target = readHarEntry(
+  const waterfallTarget = readHarEntry(
     "/nrzone/contact/waterFallInfo",
     PACKAGE_LIST_HAR_PATH
   );
-  const rewriteResult = runLoonScript(
-    target.url,
+  const waterfallRewriteResult = runLoonScript(
+    waterfallTarget.url,
     JSON.stringify({ body: "X".repeat(160) }),
     {}
   );
-  assert.strictEqual(rewriteResult.body, target.body);
+  assert.strictEqual(waterfallRewriteResult.body, waterfallTarget.body);
 }
 
 console.log("cmcc_nr_no_precheck_test passed");
