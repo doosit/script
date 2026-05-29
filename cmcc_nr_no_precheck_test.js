@@ -93,14 +93,15 @@ assertReplacedWithLearnedSuccess("/nrmix/preCheck/productPreCheck");
 assertReplacedWithLearnedSuccess("/nropportunity/atom/failedOrder/check");
 
 {
+  const store = {};
+  const success = readHarEntry("/nrpromotion/atom/courtesy/hcByNorm");
   const target = readHarEntry("/nrzone/tczq/checkAgreement");
-  const blockedBody = JSON.stringify({ body: "X".repeat(64) });
-  const rewriteResult = runLoonScript(target.url, blockedBody, {});
+
+  runLoonScript(success.url, success.body, store);
+  const rewriteResult = runLoonScript(target.url, target.body, store);
   const rewritten = JSON.parse(rewriteResult.body);
-  assert.strictEqual(
-    rewritten.body,
-    "JddRWDcJFqmaCqlqHuounSIqXFQq23U4Li9Kj55nR3KEGSZzacxGO_XgNzD6dUCbsYyT6KjQuZ9iE7-3ZzBOQqaWNrMwLU6Wk0vq0TvqMvaAbfo9_yjxVzF1hhp4eNVygv2wu-wrjqK4NRb6ve3EeA=="
-  );
+  assert.strictEqual(rewritten.body, success.cipher);
+  assert.notStrictEqual(rewritten.body, target.cipher);
 }
 
 {
