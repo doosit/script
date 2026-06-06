@@ -5,7 +5,7 @@
 #!icon=https://raw.githubusercontent.com/evilbutcher/QuantumultX/main/picture/hzh.png
 
 [Script]
-http-request https:\/\/appgw\.huazhu\.com\/game\/sign_header script-path=https://raw.githubusercontent.com/doosit/script/main/huazhuhui_loon_capture.js,requires-body=false,timeout=10,tag=华住会获取鉴权,enable=true
+http-request https:\/\/appgw\.huazhu\.com\/game\/sign_header tag=华住会获取鉴权, script-path=https://raw.githubusercontent.com/doosit/script/main/huazhuhui_loon_capture.js, requires-body=false, timeout=10, enable=true
 
 [MITM]
 hostname = appgw.huazhu.com
