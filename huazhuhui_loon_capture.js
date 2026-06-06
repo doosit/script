@@ -2,6 +2,7 @@
 
 const NAME = '华住会';
 const STORE_KEY = 'HZH_COOKIE';
+const CAPTURE_URL_RE = /https:\/\/appgw\.huazhu\.com\//;
 
 function notify(title, subtitle, message) {
   if (typeof $notification === 'undefined') {
@@ -55,10 +56,12 @@ function formatQinglongOutput(cookie) {
     return;
   }
 
-  if (!/https:\/\/appgw\.huazhu\.com\/game\/sign_header/.test(url)) {
+  if (!CAPTURE_URL_RE.test(url)) {
     done();
     return;
   }
+
+  console.log(`[${NAME}] 已匹配请求：${method} ${url}`);
 
   const cookie = readHeader($request.headers, 'Cookie');
   if (!cookie) {
