@@ -1,5 +1,5 @@
 #!name=华住会签到鉴权
-#!desc=捕获华住会 App 签到 Cookie，配合青龙环境变量 HZH_COOKIE 使用。
+#!desc=捕获华住会 App 签到 Cookie，直接显示青龙环境变量 HZH_COOKIE 供复制。
 #!author=doosit
 #!homepage=https://github.com/doosit/script
 #!icon=https://raw.githubusercontent.com/evilbutcher/QuantumultX/main/picture/hzh.png

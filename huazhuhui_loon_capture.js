@@ -22,6 +22,19 @@ function readHeader(headers, name) {
   return headers[name] || headers[name.toLowerCase()] || headers[name.toUpperCase()] || '';
 }
 
+function escapeShellSingleQuoted(value) {
+  return String(value).replace(/'/g, "'\\''");
+}
+
+function formatQinglongOutput(cookie) {
+  return [
+    `青龙变量名：${STORE_KEY}`,
+    `青龙变量值：${cookie}`,
+    '',
+    `一行格式：${STORE_KEY}='${escapeShellSingleQuoted(cookie)}'`,
+  ].join('\n');
+}
+
 (function capture() {
   if (typeof $request === 'undefined') {
     notify(NAME, '运行环境错误', '请将本脚本配置为 Loon http-request 脚本');
@@ -49,16 +62,9 @@ function readHeader(headers, name) {
     return;
   }
 
-  const saved = typeof $persistentStore !== 'undefined'
-    ? $persistentStore.write(cookie, STORE_KEY)
-    : false;
-
-  if (saved) {
-    notify(NAME, '获取鉴权成功', `已保存到 Loon 持久化键 ${STORE_KEY}\n青龙环境变量名同样填写 ${STORE_KEY}`);
-  } else {
-    notify(NAME, '获取鉴权成功', `Cookie 已捕获，请复制到青龙环境变量 ${STORE_KEY}`);
-    console.log(cookie);
-  }
+  const qinglongOutput = formatQinglongOutput(cookie);
+  notify(NAME, '获取鉴权成功，请复制到青龙', qinglongOutput);
+  console.log(qinglongOutput);
 
   done();
 })();
