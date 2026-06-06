@@ -1,0 +1,11 @@
+#!name=华住会签到鉴权
+#!desc=捕获华住会 App 网关 Cookie，直接在脚本日志显示青龙环境变量 HZH_COOKIE。
+#!author=doosit
+#!homepage=https://github.com/doosit/script
+#!icon=https://raw.githubusercontent.com/evilbutcher/QuantumultX/main/picture/hzh.png
+
+[Script]
+http-request https:\/\/appgw\.huazhu\.com\/ tag=华住会获取鉴权, script-path=https://raw.githubusercontent.com/doosit/script/main/huazhuhui_cookie_loon.js, requires-body=false, timeout=10, enable=true
+
+[MITM]
+hostname = appgw.huazhu.com
