@@ -1,0 +1,11 @@
+#!name=BHG Mall 权鉴与领券抓取
+#!desc=捕获 BHG Mall Authorization，并在点击领券后识别青龙可用的 BHG_RECEIVE_CANDIDATES。脚本不使用持久化存储。
+#!author=doosit
+#!homepage=https://github.com/doosit/script
+
+[Script]
+http-request ^https:\/\/(?:rest|a)\.china-smartech\.com\/(?:v3\/api|restful\/mall\/) tag=BHG权鉴抓取, script-path=https://raw.githubusercontent.com/doosit/script/main/bhg_loon_capture.js, requires-body=true, timeout=10, enable=true
+http-response ^https:\/\/(?:rest|a)\.china-smartech\.com\/(?:v3\/api|restful\/mall\/) tag=BHG领券接口识别, script-path=https://raw.githubusercontent.com/doosit/script/main/bhg_loon_capture.js, requires-body=true, timeout=10, enable=true
+
+[MITM]
+hostname = rest.china-smartech.com, a.china-smartech.com
