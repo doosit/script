@@ -11,6 +11,8 @@ const TARGET_URL =
   "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/checkQualificByActivityId/v3?activityId=17453&skuId=84632";
 const V5_TARGET_URL =
   "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/checkQualificByActivityId/v5?activityId=17453&skuId=84632";
+const STOCK_TARGET_URL =
+  "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/getProByActId?activityId=17453&batchId=37677&mid=22636";
 
 function runLoonScript(body, url = TARGET_URL) {
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
@@ -107,6 +109,72 @@ function runLoonScript(body, url = TARGET_URL) {
   assert.strictEqual(result.resultCode, 0);
   assert.strictEqual(result.data[0].skuResultCode, 0);
   assert.strictEqual(result.data[0].skuResultMsg, "success");
+}
+
+{
+  const result = JSON.parse(
+    runLoonScript(
+      JSON.stringify({
+        code: "0",
+        data: {
+          id: 17453,
+          subActivityList: [
+            {
+              id: 37677,
+              goodsList: [
+                {
+                  skuid: 84631,
+                  availableNum: 0,
+                  joinStatus: 3,
+                  price: 0,
+                },
+                {
+                  skuid: 84632,
+                  availableNum: 0,
+                  joinStatus: 3,
+                  price: 0,
+                },
+                {
+                  skuid: 99999,
+                  availableNum: 0,
+                  joinStatus: 3,
+                  price: 100,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      STOCK_TARGET_URL
+    ).body
+  );
+
+  assert.strictEqual(result.data.subActivityList[0].goodsList[0].availableNum, 1);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[0].joinStatus, 0);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[1].availableNum, 1);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[1].joinStatus, 0);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[2].availableNum, 0);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[2].joinStatus, 3);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[2].price, 100);
+}
+
+{
+  const unrelated = JSON.stringify({
+    code: "0",
+    data: {
+      id: 17297,
+      subActivityList: [
+        {
+          id: 35975,
+          goodsList: [{ skuid: 84632, availableNum: 0, joinStatus: 3 }],
+        },
+      ],
+    },
+  });
+  assert.strictEqual(
+    Object.keys(runLoonScript(unrelated, STOCK_TARGET_URL)).length,
+    0
+  );
 }
 
 {
