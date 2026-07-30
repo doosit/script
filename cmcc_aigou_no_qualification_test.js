@@ -9,6 +9,8 @@ const SCRIPT_PATH = path.join(
 );
 const TARGET_URL =
   "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/checkQualificByActivityId/v3?activityId=17453&skuId=84632";
+const V5_TARGET_URL =
+  "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/checkQualificByActivityId/v5?activityId=17453&skuId=84632";
 
 function runLoonScript(body, url = TARGET_URL) {
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
@@ -88,6 +90,23 @@ function runLoonScript(body, url = TARGET_URL) {
     result.data.map((item) => item.skuResultCode),
     [0, 0]
   );
+}
+
+{
+  const result = JSON.parse(
+    runLoonScript(
+      JSON.stringify({
+        resultCode: -18100,
+        msg: "not qualified",
+        data: [{ skuId: 84632, skuResultCode: -18112 }],
+      }),
+      V5_TARGET_URL
+    ).body
+  );
+
+  assert.strictEqual(result.resultCode, 0);
+  assert.strictEqual(result.data[0].skuResultCode, 0);
+  assert.strictEqual(result.data[0].skuResultMsg, "success");
 }
 
 {

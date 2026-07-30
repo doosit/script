@@ -1,8 +1,9 @@
 /*
 中国移动爱购 - 购买资格恢复
 
-仅处理 HAR 中控制购买按钮状态的资格接口：
+仅处理控制购买按钮状态的资格接口：
 checkQualificByActivityId/v3
+checkQualificByActivityId/v5
 
 正常响应特征：
 - resultCode: 0
@@ -67,6 +68,15 @@ checkQualificByActivityId/v3
     payload.msg = "success";
     payload.data = rows;
 
+    var versionMatch = url.match(/\/v(3|5)(?:\?|$)/);
+    var version = versionMatch ? versionMatch[1] : "unknown";
+    console.log(
+      "移动爱购购买资格恢复：已命中 v" +
+        version +
+        "，恢复 " +
+        rows.length +
+        " 个 SKU"
+    );
     $done({ body: JSON.stringify(payload) });
   } catch (error) {
     console.log("移动爱购购买资格恢复：响应不是有效 JSON，已原样放行");
