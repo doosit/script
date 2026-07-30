@@ -12,7 +12,7 @@ const TARGET_URL =
 const V5_TARGET_URL =
   "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/checkQualificByActivityId/v5?activityId=17453&skuId=84632";
 const STOCK_TARGET_URL =
-  "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/getProByActId?activityId=17453&batchId=37677&mid=22636";
+  "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/getProByActId?activityId=20000&batchId=0";
 
 function runLoonScript(body, url = TARGET_URL) {
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
@@ -117,28 +117,53 @@ function runLoonScript(body, url = TARGET_URL) {
       JSON.stringify({
         code: "0",
         data: {
-          id: 17453,
+          id: 20000,
+          name: "幸运三日签累签秒杀话费券",
+          subType: 12,
           subActivityList: [
             {
-              id: 37677,
+              id: 50001,
+              activityStatus: 1,
               goodsList: [
                 {
-                  skuid: 84631,
-                  availableNum: 0,
-                  joinStatus: 3,
-                  price: 0,
-                },
-                {
-                  skuid: 84632,
+                  skuid: 90001,
+                  name: "66元话费兑换券",
                   availableNum: 0,
                   joinStatus: 3,
                   price: 0,
                 },
                 {
                   skuid: 99999,
+                  name: "其他商品",
                   availableNum: 0,
                   joinStatus: 3,
                   price: 100,
+                },
+              ],
+            },
+            {
+              id: 50002,
+              activityStatus: 0,
+              goodsList: [
+                {
+                  skuid: 90002,
+                  name: "88元话费兑换券",
+                  availableNum: 3,
+                  joinStatus: 0,
+                  price: 0,
+                },
+              ],
+            },
+            {
+              id: 50003,
+              activityStatus: 0,
+              goodsList: [
+                {
+                  skuid: 90003,
+                  name: "100元话费兑换券",
+                  availableNum: 5,
+                  joinStatus: 0,
+                  price: 0,
                 },
               ],
             },
@@ -149,13 +174,18 @@ function runLoonScript(body, url = TARGET_URL) {
     ).body
   );
 
+  assert.strictEqual(result.data.subActivityList[0].activityStatus, 1);
   assert.strictEqual(result.data.subActivityList[0].goodsList[0].availableNum, 1);
   assert.strictEqual(result.data.subActivityList[0].goodsList[0].joinStatus, 0);
-  assert.strictEqual(result.data.subActivityList[0].goodsList[1].availableNum, 1);
-  assert.strictEqual(result.data.subActivityList[0].goodsList[1].joinStatus, 0);
-  assert.strictEqual(result.data.subActivityList[0].goodsList[2].availableNum, 0);
-  assert.strictEqual(result.data.subActivityList[0].goodsList[2].joinStatus, 3);
-  assert.strictEqual(result.data.subActivityList[0].goodsList[2].price, 100);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[1].availableNum, 0);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[1].joinStatus, 3);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[1].price, 100);
+  assert.strictEqual(result.data.subActivityList[1].activityStatus, 1);
+  assert.strictEqual(result.data.subActivityList[1].goodsList[0].availableNum, 3);
+  assert.strictEqual(result.data.subActivityList[1].goodsList[0].joinStatus, 0);
+  assert.strictEqual(result.data.subActivityList[2].activityStatus, 1);
+  assert.strictEqual(result.data.subActivityList[2].goodsList[0].availableNum, 5);
+  assert.strictEqual(result.data.subActivityList[2].goodsList[0].joinStatus, 0);
 }
 
 {
@@ -163,10 +193,20 @@ function runLoonScript(body, url = TARGET_URL) {
     code: "0",
     data: {
       id: 17297,
+      name: "26世界杯好物专区返AI豆秒杀",
+      subType: 11,
       subActivityList: [
         {
           id: 35975,
-          goodsList: [{ skuid: 84632, availableNum: 0, joinStatus: 3 }],
+          activityStatus: 0,
+          goodsList: [
+            {
+              skuid: 84632,
+              name: "88元话费兑换券",
+              availableNum: 0,
+              joinStatus: 3,
+            },
+          ],
         },
       ],
     },

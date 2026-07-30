@@ -13,9 +13,11 @@ getProByActId
 - data[].skuResultMsg: "success"
 - 目标活动商品 availableNum > 0
 - 目标活动商品 joinStatus: 0
+- 目标日期批次 activityStatus: 1
 
-脚本仅恢复活动 17453、批次 37677、SKU 84631/84632/84633 的页面
-可抢购状态，不会修改商品价格、订单或支付接口。JSON 解析失败时原样放行。
+脚本根据活动名称与商品名称识别幸运三日签话费券，不依赖固定活动 ID、
+批次 ID 或 SKU ID。不会修改商品价格、订单或支付接口。JSON 解析失败时
+原样放行。
 */
 
 (function () {
@@ -25,11 +27,6 @@ getProByActId
     typeof $request !== "undefined" && $request && $request.url
       ? String($request.url)
       : "";
-  var targetSkuIds = {
-    84631: true,
-    84632: true,
-    84633: true,
-  };
 
   function queryValues(name) {
     var match = url.match(new RegExp("[?&]" + name + "=([^&#]*)"));
@@ -50,6 +47,28 @@ getProByActId
 
   function normalizeSkuId(value) {
     return /^\d+$/.test(value) ? Number(value) : value;
+  }
+
+  function isTargetActivity(data) {
+    var name = data && data.name != null ? String(data.name) : "";
+    return name.indexOf("幸运三日签") !== -1 && Number(data.subType) === 12;
+  }
+
+  function isTargetGoods(goods) {
+    if (!goods || typeof goods !== "object") {
+      return false;
+    }
+    var name = [
+      goods.name,
+      goods.midName,
+      goods.showName,
+      goods.rightTypeRemark,
+    ]
+      .filter(function (value) {
+        return value != null;
+      })
+      .join(" ");
+    return /(?:66|88|100)元话费兑换券/.test(name);
   }
 
   function restoreQualification(payload) {
@@ -88,42 +107,58 @@ getProByActId
     return payload;
   }
 
-  function restoreActivityStock(payload) {
+  function restoreActivityState(payload) {
     if (
       !payload ||
       !payload.data ||
-      Number(payload.data.id) !== 17453 ||
+      !isTargetActivity(payload.data) ||
       !Array.isArray(payload.data.subActivityList)
     ) {
-      return 0;
+      return { changed: 0, batches: 0, goods: 0 };
     }
 
     var changed = 0;
+    var batches = 0;
+    var goodsCount = 0;
     payload.data.subActivityList.forEach(function (activity) {
-      if (
-        !activity ||
-        Number(activity.id) !== 37677 ||
-        !Array.isArray(activity.goodsList)
-      ) {
+      if (!activity || !Array.isArray(activity.goodsList)) {
         return;
       }
 
-      activity.goodsList.forEach(function (goods) {
-        if (!goods || !targetSkuIds[Number(goods.skuid)]) {
-          return;
-        }
-        goods.availableNum = 1;
-        goods.joinStatus = 0;
+      var targetGoods = activity.goodsList.filter(isTargetGoods);
+      if (targetGoods.length === 0) {
+        return;
+      }
+
+      batches += 1;
+      if (Number(activity.activityStatus) !== 1) {
+        activity.activityStatus = 1;
         changed += 1;
+      }
+
+      targetGoods.forEach(function (goods) {
+        goodsCount += 1;
+        if (!isFinite(Number(goods.availableNum)) || Number(goods.availableNum) <= 0) {
+          goods.availableNum = 1;
+          changed += 1;
+        }
+        if (Number(goods.joinStatus) !== 0) {
+          goods.joinStatus = 0;
+          changed += 1;
+        }
       });
     });
 
     if (changed > 0) {
       console.log(
-        "移动爱购抢购状态恢复：已恢复 " + changed + " 个话费券 SKU"
+        "移动爱购日期状态自适应：已处理 " +
+          batches +
+          " 个日期批次、" +
+          goodsCount +
+          " 个话费券 SKU"
       );
     }
-    return changed;
+    return { changed: changed, batches: batches, goods: goodsCount };
   }
 
   try {
@@ -135,12 +170,12 @@ getProByActId
       return;
     }
 
-    if (
-      /\/arrange\/getProByActId(?:\?|$)/.test(url) &&
-      restoreActivityStock(payload) > 0
-    ) {
-      $done({ body: JSON.stringify(payload) });
-      return;
+    if (/\/arrange\/getProByActId(?:\?|$)/.test(url)) {
+      var activityResult = restoreActivityState(payload);
+      if (activityResult.changed > 0) {
+        $done({ body: JSON.stringify(payload) });
+        return;
+      }
     }
 
     $done({});
