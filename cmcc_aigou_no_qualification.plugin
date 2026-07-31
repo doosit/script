@@ -1,11 +1,14 @@
 #!name=中国移动爱购购买状态恢复
-#!desc=自适应恢复幸运三日签各日期话费券的资格、库存、参与及详情时间状态；仅修改前置页面响应，不修改订单或支付结果。
+#!desc=恢复幸运三日签资格、库存、参与和服务器时间状态；解除“活动太火爆”泛化弹窗但保留真实错误，不伪造短信、订单或支付成功。
 #!author=doosit
 #!homepage=https://github.com/doosit/script
 
 [Script]
-http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/checkQualificByActivityId\/v(?:3|5)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js,requires-body=true,timeout=10,tag=移动爱购购买资格恢复,enable=true
-http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/getProByActId(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js,requires-body=true,timeout=10,tag=移动爱购日期状态自适应,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/checkQualificByActivityId\/v(?:3|5)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购购买资格恢复,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/getProByActId(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购日期状态自适应,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market\/api\/order\/getCurrentTime\.do(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购服务器时间校正,enable=true
+http-request ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=false,timeout=10,tag=移动爱购详情缓存刷新,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购火爆弹窗解除,enable=true
 
 [MITM]
 hostname = dev.coc.10086.cn
