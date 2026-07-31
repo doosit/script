@@ -19,6 +19,10 @@ const SERVER_TIME_URL =
   "https://dev.coc.10086.cn/coc3/coc3-market/api/order/getCurrentTime.do";
 const DETAIL_PAGE_URL =
   "https://dev.coc.10086.cn/coc3/canvas/rightsmarket-h5-canvas/online/detail5?mid=1916&aBatchId=37678&aid=17453";
+const DETAIL_LAYOUT_URL =
+  "https://res.coc.10086.cn/res/cdn/coc1/fixedPath/production.rightsmarket-h5-canvas.online.layout.detail5.json";
+const TARGET_LAYOUT_URL =
+  "https://res.coc.10086.cn/res/cdn/coc1/fixedPath/production.rightsmarket-h5-canvas.online.layout.adaptive-page.json";
 
 function createPersistentStore() {
   const values = new Map();
@@ -367,21 +371,126 @@ function runLoonRequest(url, headers) {
 }
 
 {
-  const html = "<!doctype html><html><body><div id=\"app\"></div></body></html>";
+  const html =
+    "<!doctype html><html><head><script src=\"app.js\"></script></head>" +
+    "<body><div id=\"app\"></div></body></html>";
   const result = runLoonScript(html, DETAIL_PAGE_URL);
   assert(result.body.includes("data-cmcc-aigou-popup-fix"));
-  assert(result.body.includes("(?:活动|业务)太火爆"));
+  assert(result.body.includes("(?:活动|业务).{0,4}太火爆"));
   assert(result.body.includes("/coc3-market/api/sms/qwSendSmsCode"));
   assert(result.body.includes("购买验证码未发送"));
   assert(result.body.includes("releaseSmsButton"));
+  assert(result.body.includes("activityHotTips=0"));
+  assert(result.body.includes("canvasworkbenchweb_auth"));
+  assert(result.body.includes("patchBusyToast"));
+  assert(
+    result.body.indexOf("data-cmcc-aigou-popup-fix") <
+      result.body.indexOf('src="app.js"')
+  );
   const inlineSource = result.body.match(
     /<script data-cmcc-aigou-popup-fix="1">([\s\S]*?)<\/script>/
   );
   assert(inlineSource, "injected browser script was not found");
   new vm.Script(inlineSource[1]);
+
+  class FakeStorage {
+    constructor(initial = {}) {
+      this.values = new Map(Object.entries(initial));
+    }
+    getItem(key) {
+      return this.values.has(key) ? this.values.get(key) : null;
+    }
+    setItem(key, value) {
+      this.values.set(key, String(value));
+    }
+  }
+
+  const storedPageInfo = JSON.stringify({
+    page_info: JSON.stringify({
+      activityHotTips: 1,
+      name: "幸运三日签",
+    }),
+  });
+  const sessionStorage = new FakeStorage({
+    canvasworkbenchweb_auth: storedPageInfo,
+  });
+  const localStorage = new FakeStorage();
+  const toastCalls = [];
+  const originalToast = function (options) {
+    toastCalls.push(options);
+  };
+  originalToast.clear = function () {};
+  const browserWindow = {
+    sessionStorage,
+    localStorage,
+    $utils: { toast: originalToast },
+  };
+  function FakeXhr() {}
+  FakeXhr.prototype.open = function () {};
+  const browserSandbox = {
+    window: browserWindow,
+    Storage: FakeStorage,
+    XMLHttpRequest: FakeXhr,
+    MutationObserver: function () {
+      this.observe = function () {};
+    },
+    document: {
+      body: { appendChild() {} },
+      documentElement: {},
+      getElementById() {
+        return null;
+      },
+      createElement() {
+        return {
+          style: {},
+          remove() {},
+        };
+      },
+      querySelectorAll() {
+        return [];
+      },
+    },
+    setTimeout(callback, delay) {
+      if (delay === 0) {
+        callback();
+      }
+      return 1;
+    },
+    setInterval() {
+      return 1;
+    },
+    clearInterval() {},
+  };
+  vm.runInNewContext(inlineSource[1], browserSandbox);
+
+  let stored = JSON.parse(
+    sessionStorage.getItem("canvasworkbenchweb_auth")
+  );
+  assert.strictEqual(JSON.parse(stored.page_info).activityHotTips, 0);
+  sessionStorage.setItem("canvasworkbenchweb_auth", storedPageInfo);
+  stored = JSON.parse(sessionStorage.getItem("canvasworkbenchweb_auth"));
+  assert.strictEqual(JSON.parse(stored.page_info).activityHotTips, 0);
+
+  browserWindow.$utils.toast({
+    message: "活动太火爆啦，请稍后重试~",
+  });
+  assert.strictEqual(toastCalls.length, 0);
+  browserWindow.$utils.toast({ message: "真实错误" });
+  assert.strictEqual(toastCalls.length, 1);
+  assert.strictEqual(toastCalls[0].message, "真实错误");
+
   assert.strictEqual(
     Object.keys(runLoonScript(result.body, DETAIL_PAGE_URL)).length,
     0
+  );
+}
+
+{
+  const html = "<!doctype html><html><body><div id=\"app\"></div></body></html>";
+  const result = runLoonScript(html, DETAIL_PAGE_URL);
+  assert(
+    result.body.indexOf("data-cmcc-aigou-popup-fix") <
+      result.body.indexOf('id="app"')
   );
 }
 
@@ -397,6 +506,59 @@ function runLoonRequest(url, headers) {
   assert.strictEqual(result.headers["if-modified-since"], undefined);
   assert.strictEqual(result.headers["Cache-Control"], "no-cache");
   assert.strictEqual(result.headers.Pragma, "no-cache");
+}
+
+{
+  const result = runLoonRequest(DETAIL_LAYOUT_URL, {
+    Accept: "application/json",
+    "If-None-Match": "\"cached-layout\"",
+  });
+
+  assert.strictEqual(result.headers.Accept, "application/json");
+  assert.strictEqual(result.headers["If-None-Match"], undefined);
+  assert.strictEqual(result.headers["Cache-Control"], "no-cache");
+}
+
+{
+  const result = JSON.parse(
+    runLoonScript(
+      JSON.stringify({
+        activityHotTips: 1,
+        description: "商品详情",
+      }),
+      DETAIL_LAYOUT_URL
+    ).body
+  );
+  assert.strictEqual(result.activityHotTips, 0);
+}
+
+{
+  const result = JSON.parse(
+    runLoonScript(
+      JSON.stringify({
+        activityHotTips: 1,
+        instanceList: [
+          {
+            name: "幸运三日签累签秒杀话费券",
+            activityId: 29999,
+          },
+        ],
+      }),
+      TARGET_LAYOUT_URL
+    ).body
+  );
+  assert.strictEqual(result.activityHotTips, 0);
+}
+
+{
+  const unrelated = JSON.stringify({
+    activityHotTips: 1,
+    instanceList: [{ name: "其他活动", activityId: 99999 }],
+  });
+  assert.strictEqual(
+    Object.keys(runLoonScript(unrelated, TARGET_LAYOUT_URL)).length,
+    0
+  );
 }
 
 {

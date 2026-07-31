@@ -4,11 +4,13 @@
 #!homepage=https://github.com/doosit/script
 
 [Script]
-http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/checkQualificByActivityId\/v(?:3|5)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购购买资格恢复,enable=true
-http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/getProByActId(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购日期状态自适应,enable=true
-http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market\/api\/order\/getCurrentTime\.do(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购服务器时间校正,enable=true
-http-request ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=false,timeout=10,tag=移动爱购详情缓存刷新,enable=true
-http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-1,requires-body=true,timeout=10,tag=移动爱购火爆弹窗解除,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/checkQualificByActivityId\/v(?:3|5)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-2,requires-body=true,timeout=10,tag=移动爱购购买资格恢复,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market-activity\/arrange\/getProByActId(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-2,requires-body=true,timeout=10,tag=移动爱购日期状态自适应,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/coc3-market\/api\/order\/getCurrentTime\.do(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-2,requires-body=true,timeout=10,tag=移动爱购服务器时间校正,enable=true
+http-request ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-2,requires-body=false,timeout=10,tag=移动爱购详情缓存刷新,enable=true
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-2,requires-body=true,timeout=10,tag=移动爱购火爆弹窗解除,enable=true
+http-request ^https:\/\/res\.coc\.10086\.cn\/res\/cdn\/coc1\/fixedPath\/production\.rightsmarket-h5-canvas\.online\.layout\.[^\/?]+\.json(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-2,requires-body=false,timeout=10,tag=移动爱购页面配置缓存刷新,enable=true
+http-response ^https:\/\/res\.coc\.10086\.cn\/res\/cdn\/coc1\/fixedPath\/production\.rightsmarket-h5-canvas\.online\.layout\.[^\/?]+\.json(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_aigou_no_qualification_loon.js?v=20260731-2,requires-body=true,timeout=10,tag=移动爱购火爆配置关闭,enable=true
 
 [MITM]
-hostname = dev.coc.10086.cn
+hostname = dev.coc.10086.cn, res.coc.10086.cn

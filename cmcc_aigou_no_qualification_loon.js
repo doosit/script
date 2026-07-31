@@ -7,6 +7,7 @@ checkQualificByActivityId/v5
 getProByActId
 getCurrentTime.do
 detail5 页面
+页面 layout JSON
 
 正常响应特征：
 - resultCode: 0
@@ -35,11 +36,15 @@ detail5 页面
       ? String($request.url)
       : "";
   var isRequestPhase = typeof $response === "undefined";
+  var isDetailPageUrl =
+    /\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?|$)/.test(url);
+  var isLayoutConfigUrl =
+    /\/production\.rightsmarket-h5-canvas\.online\.layout\.[^/?]+\.json(?:\?|$)/.test(
+      url
+    );
 
   if (isRequestPhase) {
-    if (
-      /\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?|$)/.test(url)
-    ) {
+    if (isDetailPageUrl || isLayoutConfigUrl) {
       var requestHeaders = {};
       var originalHeaders =
         $request && $request.headers && typeof $request.headers === "object"
@@ -52,7 +57,7 @@ detail5 页面
       });
       requestHeaders["Cache-Control"] = "no-cache";
       requestHeaders.Pragma = "no-cache";
-      console.log("移动爱购火爆弹窗处理：已请求完整详情页");
+      console.log("移动爱购火爆弹窗处理：已请求完整页面配置");
       $done({ headers: requestHeaders });
     } else {
       $done({});
@@ -145,12 +150,43 @@ detail5 页面
       "(function(){",
       'if(window.__cmccAigouPopupFixInstalled){return;}',
       "window.__cmccAigouPopupFixInstalled=true;",
-      'var busyPattern=/(?:活动|业务)太火爆/;',
+      'var busyPattern=/(?:活动|业务).{0,4}太火爆/;',
       "var lastSmsFailure='';",
+      "function sanitizeActivityHotTips(value){",
+      "try{",
+      "var container=JSON.parse(String(value||'{}'));",
+      "var rawPageInfo=container.page_info;",
+      "if(rawPageInfo==null){return value;}",
+      "var pageInfo=typeof rawPageInfo==='string'?JSON.parse(rawPageInfo):rawPageInfo;",
+      "if(!pageInfo||typeof pageInfo!=='object'){return value;}",
+      "pageInfo.activityHotTips=0;",
+      "container.page_info=typeof rawPageInfo==='string'?JSON.stringify(pageInfo):pageInfo;",
+      "return JSON.stringify(container);",
+      "}catch(error){return value;}",
+      "}",
+      "function disableStoredBusyTip(storage){",
+      "try{",
+      "var key='canvasworkbenchweb_auth';",
+      "var current=storage.getItem(key);",
+      "if(current!=null){storage.setItem(key,sanitizeActivityHotTips(current));}",
+      "}catch(error){}",
+      "}",
+      "try{",
+      "if(typeof Storage!=='undefined'&&Storage.prototype&&Storage.prototype.setItem){",
+      "var originalStorageSetItem=Storage.prototype.setItem;",
+      "Storage.prototype.setItem=function(key,value){",
+      "if(key==='canvasworkbenchweb_auth'){value=sanitizeActivityHotTips(value);}",
+      "return originalStorageSetItem.call(this,key,value);",
+      "};",
+      "}",
+      "}catch(error){}",
+      "try{disableStoredBusyTip(window.sessionStorage);}catch(error){}",
+      "try{disableStoredBusyTip(window.localStorage);}catch(error){}",
       "function showNotice(message){",
       "if(!message){return;}",
       "var old=document.getElementById('cmcc-aigou-real-error');",
       "if(old){old.remove();}",
+      "if(!document.body){return;}",
       "var notice=document.createElement('div');",
       "notice.id='cmcc-aigou-real-error';",
       "notice.textContent=message;",
@@ -173,8 +209,25 @@ detail5 页面
       "button.style.opacity='1';",
       "});",
       "}",
+      "function patchBusyToast(){",
+      "var utils=window.$utils;",
+      "if(!utils||typeof utils.toast!=='function'||utils.toast.__cmccBusyFiltered){return;}",
+      "var originalToast=utils.toast;",
+      "var filteredToast=function(options){",
+      "var message=typeof options==='string'?options:options&&options.message;",
+      "if(busyPattern.test(String(message||''))){",
+      "setTimeout(releaseSmsButton,0);",
+      "return;",
+      "}",
+      "return originalToast.apply(this,arguments);",
+      "};",
+      "filteredToast.__cmccBusyFiltered=true;",
+      "if(originalToast.clear){filteredToast.clear=function(){return originalToast.clear.apply(originalToast,arguments);};}",
+      "utils.toast=filteredToast;",
+      "}",
       "function dismissBusyPopup(){",
-      "var nodes=document.querySelectorAll('.van-dialog,.van-popup,.van-toast,[role=\"dialog\"]');",
+      "patchBusyToast();",
+      "var nodes=document.querySelectorAll('.van-dialog,.van-popup,.van-toast,.yd-dialog,.common-dialog,[class*=\"dialog\"],[class*=\"popup\"],[role=\"dialog\"]');",
       "Array.prototype.forEach.call(nodes,function(node){",
       "if(!busyPattern.test(String(node.textContent||''))){return;}",
       "var controls=node.querySelectorAll('button,[role=\"button\"],.van-button');",
@@ -216,15 +269,49 @@ detail5 页面
       "};",
       "var observer=new MutationObserver(function(){dismissBusyPopup();});",
       "observer.observe(document.documentElement,{childList:true,subtree:true});",
+      "var toastPatchTimer=setInterval(patchBusyToast,250);",
+      "setTimeout(function(){clearInterval(toastPatchTimer);},10000);",
       "dismissBusyPopup();",
       "})();",
       "</script>",
     ].join("");
 
-    if (/<\/body>/i.test(html)) {
-      return html.replace(/<\/body>/i, injected + "</body>");
+    if (/<head(?:\s[^>]*)?>/i.test(html)) {
+      return html.replace(/<head(\s[^>]*)?>/i, function (head) {
+        return head + injected;
+      });
     }
-    return html + injected;
+    if (/<body(?:\s[^>]*)?>/i.test(html)) {
+      return html.replace(/<body(\s[^>]*)?>/i, function (bodyTag) {
+        return bodyTag + injected;
+      });
+    }
+    return injected + html;
+  }
+
+  function disableBusyTipConfig(payload) {
+    if (!payload || typeof payload !== "object") {
+      return false;
+    }
+
+    var isDetailLayout =
+      /\/production\.rightsmarket-h5-canvas\.online\.layout\.detail5\.json(?:\?|$)/.test(
+        url
+      );
+    var serialized = "";
+    try {
+      serialized = JSON.stringify(payload);
+    } catch (error) {}
+    var isTargetLayout = serialized.indexOf("幸运三日签") !== -1;
+
+    if (
+      (isDetailLayout || isTargetLayout) &&
+      Number(payload.activityHotTips) !== 0
+    ) {
+      payload.activityHotTips = 0;
+      return true;
+    }
+    return false;
   }
 
   function isDetailBatchRequest() {
@@ -378,7 +465,7 @@ detail5 页面
     };
   }
 
-  if (/\/canvas\/rightsmarket-h5-canvas\/online\/detail5(?:\?|$)/.test(url)) {
+  if (isDetailPageUrl) {
     var updatedHtml = injectBusyPopupFix(body);
     if (updatedHtml !== body) {
       console.log("移动爱购火爆弹窗处理：已注入非阻塞处理");
@@ -391,6 +478,16 @@ detail5 页面
 
   try {
     var payload = JSON.parse(body);
+
+    if (isLayoutConfigUrl) {
+      if (disableBusyTipConfig(payload)) {
+        console.log("移动爱购火爆弹窗处理：已关闭页面配置开关");
+        $done({ body: JSON.stringify(payload) });
+      } else {
+        $done({});
+      }
+      return;
+    }
 
     if (/\/coc3-market\/api\/order\/getCurrentTime\.do(?:\?|$)/.test(url)) {
       saveServerTime(payload);
