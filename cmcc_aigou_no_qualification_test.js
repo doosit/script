@@ -224,6 +224,14 @@ function runLoonRequest(url, headers) {
   assert.strictEqual(result.data.subActivityList[0].activityStatus, 1);
   assert.strictEqual(result.data.subActivityList[0].goodsList[0].availableNum, 1);
   assert.strictEqual(result.data.subActivityList[0].goodsList[0].joinStatus, 0);
+  assert.strictEqual(
+    result.data.subActivityList[0].goodsList[0]._cmccOriginalAvailableNum,
+    0
+  );
+  assert.strictEqual(
+    result.data.subActivityList[0].goodsList[0]._cmccOriginalJoinStatus,
+    3
+  );
   assert.strictEqual(result.data.subActivityList[0].goodsList[1].availableNum, 0);
   assert.strictEqual(result.data.subActivityList[0].goodsList[1].joinStatus, 3);
   assert.strictEqual(result.data.subActivityList[0].goodsList[1].price, 100);
@@ -235,6 +243,47 @@ function runLoonRequest(url, headers) {
   assert.strictEqual(result.data.subActivityList[2].activityStatus, 1);
   assert.strictEqual(result.data.subActivityList[2].goodsList[0].availableNum, 5);
   assert.strictEqual(result.data.subActivityList[2].goodsList[0].joinStatus, 0);
+}
+
+{
+  const result = JSON.parse(
+    runLoonScript(
+      JSON.stringify({
+        code: "0",
+        data: {
+          id: 29999,
+          name: "幸运三日签新面额",
+          subType: 12,
+          subActivityList: [
+            {
+              id: 70001,
+              activityStatus: 0,
+              goodsList: [
+                {
+                  skuid: 91001,
+                  name: "50元话费券",
+                  availableNum: 0,
+                  joinStatus: 3,
+                },
+                {
+                  skuid: 91002,
+                  name: "50元礼品券",
+                  availableNum: 0,
+                  joinStatus: 3,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      STOCK_TARGET_URL
+    ).body
+  );
+
+  assert.strictEqual(result.data.subActivityList[0].goodsList[0].availableNum, 1);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[0].joinStatus, 0);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[1].availableNum, 0);
+  assert.strictEqual(result.data.subActivityList[0].goodsList[1].joinStatus, 3);
 }
 
 {
@@ -383,6 +432,8 @@ function runLoonRequest(url, headers) {
   assert(result.body.includes("activityHotTips=0"));
   assert(result.body.includes("canvasworkbenchweb_auth"));
   assert(result.body.includes("patchBusyToast"));
+  assert(result.body.includes("接口库存 / 页面库存"));
+  assert(result.body.includes("__cmccAigouRenderInventory"));
   assert(
     result.body.indexOf("data-cmcc-aigou-popup-fix") <
       result.body.indexOf('src="app.js"')
@@ -425,6 +476,35 @@ function runLoonRequest(url, headers) {
     localStorage,
     $utils: { toast: originalToast },
   };
+  function createFakeElement() {
+    const element = {
+      children: [],
+      style: {},
+      appendChild(child) {
+        this.children.push(child);
+        return child;
+      },
+      removeChild(child) {
+        const index = this.children.indexOf(child);
+        if (index !== -1) {
+          this.children.splice(index, 1);
+        }
+        return child;
+      },
+      addEventListener() {},
+      remove() {},
+      querySelectorAll() {
+        return [];
+      },
+    };
+    Object.defineProperty(element, "firstChild", {
+      get() {
+        return this.children[0] || null;
+      },
+    });
+    return element;
+  }
+  const fakeBody = createFakeElement();
   function FakeXhr() {}
   FakeXhr.prototype.open = function () {};
   const browserSandbox = {
@@ -435,16 +515,13 @@ function runLoonRequest(url, headers) {
       this.observe = function () {};
     },
     document: {
-      body: { appendChild() {} },
+      body: fakeBody,
       documentElement: {},
       getElementById() {
         return null;
       },
       createElement() {
-        return {
-          style: {},
-          remove() {},
-        };
+        return createFakeElement();
       },
       querySelectorAll() {
         return [];
@@ -462,6 +539,51 @@ function runLoonRequest(url, headers) {
     clearInterval() {},
   };
   vm.runInNewContext(inlineSource[1], browserSandbox);
+
+  browserWindow.__cmccAigouRenderInventory({
+    data: {
+      subActivityList: [
+        {
+          id: 70001,
+          startTime: Date.now() - 1000,
+          endTime: Date.now() + 60000,
+          goodsList: [
+            {
+              skuid: 91001,
+              name: "50元话费券",
+              availableNum: 1,
+              _cmccOriginalAvailableNum: 0,
+            },
+            {
+              skuid: 91002,
+              name: "100元话费兑换券",
+              availableNum: 5,
+              _cmccOriginalAvailableNum: 5,
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.strictEqual(browserWindow.__cmccAigouInventorySnapshot.length, 2);
+  assert.strictEqual(
+    browserWindow.__cmccAigouInventorySnapshot[0].original,
+    0
+  );
+  assert.strictEqual(
+    browserWindow.__cmccAigouInventorySnapshot[0].effective,
+    1
+  );
+  assert.strictEqual(
+    browserWindow.__cmccAigouInventorySnapshot[1].original,
+    5
+  );
+  assert.strictEqual(fakeBody.children.length, 1);
+  assert.strictEqual(fakeBody.children[0].children[0].textContent, "库存 5 · 2款");
+  assert.strictEqual(
+    fakeBody.children[0].children[1].children[0].textContent,
+    "接口库存 / 页面库存"
+  );
 
   let stored = JSON.parse(
     sessionStorage.getItem("canvasworkbenchweb_auth")

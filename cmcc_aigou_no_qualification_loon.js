@@ -152,6 +152,10 @@ detail5 页面
       "window.__cmccAigouPopupFixInstalled=true;",
       'var busyPattern=/(?:活动|业务).{0,4}太火爆/;',
       "var lastSmsFailure='';",
+      "var serverOffsetMs=0;",
+      "var inventoryRoot=null;",
+      "var inventoryPanel=null;",
+      "var inventoryToggle=null;",
       "function sanitizeActivityHotTips(value){",
       "try{",
       "var container=JSON.parse(String(value||'{}'));",
@@ -209,6 +213,99 @@ detail5 页面
       "button.style.opacity='1';",
       "});",
       "}",
+      "function normalizeTimeMs(value){",
+      "var number=Number(value);",
+      "if(!isFinite(number)){return 0;}",
+      "return number<1000000000000?number*1000:number;",
+      "}",
+      "function goodsName(goods){",
+      "return String(goods.name||goods.midName||goods.showName||goods.rightTypeRemark||('SKU '+String(goods.skuid||goods.skuId||'')));",
+      "}",
+      "function inventoryRows(payload){",
+      "var data=payload&&payload.data;",
+      "if(!data||!Array.isArray(data.subActivityList)){return [];}",
+      "var now=Date.now()+serverOffsetMs;",
+      "var rows=[];",
+      "data.subActivityList.forEach(function(batch){",
+      "if(!batch||!Array.isArray(batch.goodsList)){return;}",
+      "var start=normalizeTimeMs(batch.startTime);",
+      "var end=normalizeTimeMs(batch.endTime);",
+      "var state=start&&now<start?'未开始':end&&now>=end?'已结束':'进行中';",
+      "batch.goodsList.forEach(function(goods){",
+      "if(!goods||typeof goods!=='object'){return;}",
+      "var original=goods._cmccOriginalAvailableNum;",
+      "if(original==null){original=goods.availableNum;}",
+      "rows.push({",
+      "batchId:batch.id==null?'':String(batch.id),",
+      "startTime:start,",
+      "state:state,",
+      "name:goodsName(goods),",
+      "sku:String(goods.skuid||goods.skuId||''),",
+      "original:Number(original),",
+      "effective:Number(goods.availableNum),",
+      "});",
+      "});",
+      "});",
+      "return rows;",
+      "}",
+      "function formatBatchTime(value){",
+      "if(!value){return '时间未知';}",
+      "var date=new Date(value);",
+      "function pad2(number){return number<10?'0'+String(number):String(number);}",
+      "var month=pad2(date.getMonth()+1);",
+      "var day=pad2(date.getDate());",
+      "var hour=pad2(date.getHours());",
+      "var minute=pad2(date.getMinutes());",
+      "return month+'-'+day+' '+hour+':'+minute;",
+      "}",
+      "function ensureInventoryPanel(){",
+      "if(inventoryRoot||!document.body){return;}",
+      "inventoryRoot=document.createElement('div');",
+      "inventoryRoot.id='cmcc-aigou-inventory';",
+      "inventoryRoot.style.cssText='position:fixed;top:calc(env(safe-area-inset-top,0px) + 72px);right:10px;z-index:2147483000;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#fff;text-align:left';",
+      "inventoryToggle=document.createElement('button');",
+      "inventoryToggle.type='button';",
+      "inventoryToggle.style.cssText='float:right;border:0;border-radius:16px;padding:7px 11px;background:rgba(25,25,28,.92);color:#fff;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.25)';",
+      "inventoryPanel=document.createElement('div');",
+      "inventoryPanel.style.cssText='display:none;clear:both;margin-top:36px;width:82vw;max-width:300px;max-height:52vh;overflow:auto;border-radius:12px;padding:10px;background:rgba(25,25,28,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);font-size:12px;line-height:18px';",
+      "inventoryToggle.addEventListener('click',function(){inventoryPanel.style.display=inventoryPanel.style.display==='none'?'block':'none';});",
+      "inventoryRoot.appendChild(inventoryToggle);",
+      "inventoryRoot.appendChild(inventoryPanel);",
+      "document.body.appendChild(inventoryRoot);",
+      "}",
+      "function renderInventory(payload){",
+      "var rows=inventoryRows(payload);",
+      "window.__cmccAigouInventorySnapshot=rows;",
+      "if(!rows.length){return;}",
+      "if(!document.body){setTimeout(function(){renderInventory(payload);},50);return;}",
+      "ensureInventoryPanel();",
+      "var total=rows.reduce(function(sum,row){return sum+(isFinite(row.original)?Math.max(0,row.original):0);},0);",
+      "inventoryToggle.textContent='库存 '+String(total)+' · '+String(rows.length)+'款';",
+      "while(inventoryPanel.firstChild){inventoryPanel.removeChild(inventoryPanel.firstChild);}",
+      "var title=document.createElement('div');",
+      "title.textContent='接口库存 / 页面库存';",
+      "title.style.cssText='font-weight:700;margin-bottom:6px;color:#fff';",
+      "inventoryPanel.appendChild(title);",
+      "var currentBatch='';",
+      "rows.forEach(function(row){",
+      "var batchKey=row.batchId+'_'+String(row.startTime);",
+      "if(batchKey!==currentBatch){",
+      "currentBatch=batchKey;",
+      "var batchTitle=document.createElement('div');",
+      "batchTitle.textContent=formatBatchTime(row.startTime)+' · '+row.state+(row.batchId?' · 批次'+row.batchId:'');",
+      "batchTitle.style.cssText='margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.13);color:#ffcf70';",
+      "inventoryPanel.appendChild(batchTitle);",
+      "}",
+      "var item=document.createElement('div');",
+      "var original=isFinite(row.original)?String(row.original):'未知';",
+      "var effective=isFinite(row.effective)?String(row.effective):'未知';",
+      "item.textContent=row.name+' · '+original+' / '+effective+(row.sku?' · SKU '+row.sku:'');",
+      "item.style.cssText='padding:3px 0;color:'+(Number(row.original)>0?'#dff7df':'#ffd0c9');",
+      "inventoryPanel.appendChild(item);",
+      "});",
+      "}",
+      "window.__cmccAigouRenderInventory=renderInventory;",
+      "window.__cmccAigouInventorySnapshot=[];",
       "function patchBusyToast(){",
       "var utils=window.$utils;",
       "if(!utils||typeof utils.toast!=='function'||utils.toast.__cmccBusyFiltered){return;}",
@@ -249,14 +346,20 @@ detail5 页面
       "}",
       "var originalOpen=XMLHttpRequest.prototype.open;",
       "XMLHttpRequest.prototype.open=function(method,requestUrl){",
-      "this.__cmccPurchaseSms=typeof requestUrl==='string'&&" +
-        "requestUrl.indexOf('/coc3-market/api/sms/qwSendSmsCode')!==-1;",
-      "if(this.__cmccPurchaseSms){",
+      "var observedUrl=typeof requestUrl==='string'?requestUrl:'';",
+      "this.__cmccPurchaseSms=observedUrl.indexOf('/coc3-market/api/sms/qwSendSmsCode')!==-1;",
+      "this.__cmccInventoryRequest=observedUrl.indexOf('/arrange/getProByActId')!==-1;",
+      "this.__cmccServerTimeRequest=observedUrl.indexOf('/api/order/getCurrentTime.do')!==-1;",
+      "if(this.__cmccPurchaseSms||this.__cmccInventoryRequest||this.__cmccServerTimeRequest){",
       "this.addEventListener('loadend',function(){",
       "try{",
       "var payload=JSON.parse(this.responseText||'{}');",
+      "if(this.__cmccServerTimeRequest&&isFinite(Number(payload.data))){",
+      "serverOffsetMs=Number(payload.data)-Date.now();",
+      "}",
+      "if(this.__cmccInventoryRequest){renderInventory(payload);}",
       "var code=payload.resultCode!=null?payload.resultCode:payload.code;",
-      "if(code!==0&&code!=='0'&&code!==200&&code!=='200'){",
+      "if(this.__cmccPurchaseSms&&code!==0&&code!=='0'&&code!==200&&code!=='200'){",
       "lastSmsFailure='购买验证码未发送（'+code+'）：'+String(payload.msg||payload.message||'接口拒绝');",
       "showNotice(lastSmsFailure);",
       "setTimeout(dismissBusyPopup,0);",
@@ -343,7 +446,7 @@ detail5 页面
         return value != null;
       })
       .join(" ");
-    return /(?:66|88|100)元话费兑换券/.test(name);
+    return /(?:\d+(?:\.\d+)?元)?话费(?:兑换)?券/.test(name);
   }
 
   function restoreQualification(payload) {
@@ -396,6 +499,7 @@ detail5 页面
     var batches = 0;
     var goodsCount = 0;
     var timeWindows = 0;
+    var annotated = 0;
     var protectTimeWindow = isDetailBatchRequest();
     var now = currentServerTimeMs();
     payload.data.subActivityList.forEach(function (activity) {
@@ -435,6 +539,16 @@ detail5 页面
 
       targetGoods.forEach(function (goods) {
         goodsCount += 1;
+        if (
+          !Object.prototype.hasOwnProperty.call(
+            goods,
+            "_cmccOriginalAvailableNum"
+          )
+        ) {
+          goods._cmccOriginalAvailableNum = goods.availableNum;
+          goods._cmccOriginalJoinStatus = goods.joinStatus;
+          annotated += 1;
+        }
         if (!isFinite(Number(goods.availableNum)) || Number(goods.availableNum) <= 0) {
           goods.availableNum = 1;
           changed += 1;
@@ -462,6 +576,7 @@ detail5 页面
       batches: batches,
       goods: goodsCount,
       timeWindows: timeWindows,
+      annotated: annotated,
     };
   }
 
@@ -503,7 +618,7 @@ detail5 页面
 
     if (/\/arrange\/getProByActId(?:\?|$)/.test(url)) {
       var activityResult = restoreActivityState(payload);
-      if (activityResult.changed > 0) {
+      if (activityResult.changed > 0 || activityResult.annotated > 0) {
         $done({ body: JSON.stringify(payload) });
         return;
       }
