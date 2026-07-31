@@ -14,10 +14,11 @@ getProByActId
 - 目标活动商品 availableNum > 0
 - 目标活动商品 joinStatus: 0
 - 目标日期批次 activityStatus: 1
+- 详情页批次 startTime <= 当前时间 < endTime
 
 脚本根据活动名称与商品名称识别幸运三日签话费券，不依赖固定活动 ID、
-批次 ID 或 SKU ID。不会修改商品价格、订单或支付接口。JSON 解析失败时
-原样放行。
+批次 ID 或 SKU ID。仅在指定批次的详情请求中保护活动时间窗，列表中的
+真实日期不变。不会修改商品价格、订单或支付接口。JSON 解析失败时原样放行。
 */
 
 (function () {
@@ -47,6 +48,16 @@ getProByActId
 
   function normalizeSkuId(value) {
     return /^\d+$/.test(value) ? Number(value) : value;
+  }
+
+  function isDetailBatchRequest() {
+    var batchIds = queryValues("batchId");
+    return (
+      batchIds.length > 0 &&
+      batchIds[0] !== "0" &&
+      (queryValues("action")[0] === "goodinfo" ||
+        queryValues("mid").length > 0)
+    );
   }
 
   function isTargetActivity(data) {
@@ -120,6 +131,9 @@ getProByActId
     var changed = 0;
     var batches = 0;
     var goodsCount = 0;
+    var timeWindows = 0;
+    var protectTimeWindow = isDetailBatchRequest();
+    var now = Date.now();
     payload.data.subActivityList.forEach(function (activity) {
       if (!activity || !Array.isArray(activity.goodsList)) {
         return;
@@ -134,6 +148,25 @@ getProByActId
       if (Number(activity.activityStatus) !== 1) {
         activity.activityStatus = 1;
         changed += 1;
+      }
+
+      if (protectTimeWindow) {
+        if (
+          !isFinite(Number(activity.startTime)) ||
+          Number(activity.startTime) > now
+        ) {
+          activity.startTime = now - 1000;
+          changed += 1;
+          timeWindows += 1;
+        }
+        if (
+          !isFinite(Number(activity.endTime)) ||
+          Number(activity.endTime) <= now
+        ) {
+          activity.endTime = now + 86400000;
+          changed += 1;
+          timeWindows += 1;
+        }
       }
 
       targetGoods.forEach(function (goods) {
@@ -155,10 +188,17 @@ getProByActId
           batches +
           " 个日期批次、" +
           goodsCount +
-          " 个话费券 SKU"
+          " 个话费券 SKU、" +
+          timeWindows +
+          " 个详情时间边界"
       );
     }
-    return { changed: changed, batches: batches, goods: goodsCount };
+    return {
+      changed: changed,
+      batches: batches,
+      goods: goodsCount,
+      timeWindows: timeWindows,
+    };
   }
 
   try {

@@ -13,6 +13,8 @@ const V5_TARGET_URL =
   "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/checkQualificByActivityId/v5?activityId=17453&skuId=84632";
 const STOCK_TARGET_URL =
   "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/getProByActId?activityId=20000&batchId=0";
+const DETAIL_TARGET_URL =
+  "https://dev.coc.10086.cn/coc3/coc3-market-activity/arrange/getProByActId?activityId=20000&batchId=50002&mid=22636&action=goodinfo";
 
 function runLoonScript(body, url = TARGET_URL) {
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
@@ -144,6 +146,8 @@ function runLoonScript(body, url = TARGET_URL) {
             {
               id: 50002,
               activityStatus: 0,
+              startTime: 4102444800000,
+              endTime: 4102531200000,
               goodsList: [
                 {
                   skuid: 90002,
@@ -181,11 +185,95 @@ function runLoonScript(body, url = TARGET_URL) {
   assert.strictEqual(result.data.subActivityList[0].goodsList[1].joinStatus, 3);
   assert.strictEqual(result.data.subActivityList[0].goodsList[1].price, 100);
   assert.strictEqual(result.data.subActivityList[1].activityStatus, 1);
+  assert.strictEqual(result.data.subActivityList[1].startTime, 4102444800000);
+  assert.strictEqual(result.data.subActivityList[1].endTime, 4102531200000);
   assert.strictEqual(result.data.subActivityList[1].goodsList[0].availableNum, 3);
   assert.strictEqual(result.data.subActivityList[1].goodsList[0].joinStatus, 0);
   assert.strictEqual(result.data.subActivityList[2].activityStatus, 1);
   assert.strictEqual(result.data.subActivityList[2].goodsList[0].availableNum, 5);
   assert.strictEqual(result.data.subActivityList[2].goodsList[0].joinStatus, 0);
+}
+
+{
+  const futureStartTime = Date.now() + 3600000;
+  const futureEndTime = Date.now() + 7200000;
+  const result = JSON.parse(
+    runLoonScript(
+      JSON.stringify({
+        code: "0",
+        data: {
+          id: 20000,
+          name: "幸运三日签累签秒杀话费券",
+          subType: 12,
+          subActivityList: [
+            {
+              id: 50002,
+              activityStatus: 0,
+              startTime: futureStartTime,
+              endTime: futureEndTime,
+              goodsList: [
+                {
+                  skuid: 90002,
+                  name: "88元话费兑换券",
+                  availableNum: 3,
+                  joinStatus: 0,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      DETAIL_TARGET_URL
+    ).body
+  );
+
+  assert.strictEqual(result.data.subActivityList[0].activityStatus, 1);
+  assert(result.data.subActivityList[0].startTime <= Date.now());
+  assert.strictEqual(
+    result.data.subActivityList[0].endTime,
+    futureEndTime
+  );
+}
+
+{
+  const expiredEndTime = Date.now() - 1000;
+  const result = JSON.parse(
+    runLoonScript(
+      JSON.stringify({
+        code: "0",
+        data: {
+          id: 20000,
+          name: "幸运三日签累签秒杀话费券",
+          subType: 12,
+          subActivityList: [
+            {
+              id: 50002,
+              activityStatus: 2,
+              startTime: Date.now() - 7200000,
+              endTime: expiredEndTime,
+              goodsList: [
+                {
+                  skuid: 90002,
+                  name: "88元话费兑换券",
+                  availableNum: 0,
+                  joinStatus: 3,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      DETAIL_TARGET_URL
+    ).body
+  );
+
+  assert.strictEqual(result.data.subActivityList[0].activityStatus, 1);
+  assert(result.data.subActivityList[0].endTime > Date.now());
+  assert.strictEqual(
+    result.data.subActivityList[0].goodsList[0].availableNum,
+    1
+  );
+  assert.strictEqual(result.data.subActivityList[0].goodsList[0].joinStatus, 0);
 }
 
 {
