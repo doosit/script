@@ -452,7 +452,7 @@ function testStorageFailureAndInvalidCapture() {
 
 function testPluginConfiguration() {
   const plugin = fs.readFileSync(PLUGIN_PATH, "utf8");
-  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-6";
+  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-7";
   const scriptLines = plugin.split(/\r?\n/).filter((line) => /^(http-request|cron|generic) /.test(line));
   const captureLine = scriptLines.find((line) => line.startsWith("http-request "));
   const capturePattern = captureLine.match(/^http-request (.+) script-path=/)[1];
@@ -466,6 +466,7 @@ function testPluginConfiguration() {
   assert.ok(plugin.includes("User\\/CheckinV2"));
   assert.ok(plugin.includes("Bonus\\/ZsskGetHuiDouList"));
   assert.ok(!plugin.includes("SCRIPT_URL"));
+  assert.ok(!/^#!system\s*=/m.test(plugin), "plugin must not restrict the operating system");
   [
     "https://m-bms.cmsk1979.com/api/user/user/GetUserAndMallCard",
     "https://m-bms.cmsk1979.com/api/user/user/GetMallCard",
