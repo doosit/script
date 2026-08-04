@@ -83,14 +83,14 @@ function encodeApiBody(value) {
 }
 
 function decodeApiBody(value) {
-  return JSON.parse(Buffer.from(value, "base64").toString("utf8"));
+  return JSON.parse(value);
 }
 
 function reply(callback, value, options = {}) {
   const response = options.useStatusCode
     ? { statusCode: options.status || 200 }
     : { status: options.status || 200 };
-  const body = options.plainJson ? JSON.stringify(value) : encodeApiBody(value);
+  const body = options.encoded ? encodeApiBody(value) : JSON.stringify(value);
   callback(null, response, body);
 }
 
@@ -109,10 +109,12 @@ function capture(store, token = TOKEN_A, options = {}) {
     },
   };
   const encoded = encodeApiBody(payload);
+  let body = JSON.stringify(payload);
+  if (options.encoded) body = options.quoted ? JSON.stringify(encoded) : encoded;
   return runScript({
     request: {
       url: "https://m-bms.cmsk1979.com/api/user/user/GetUserAndMallCard",
-      body: options.quoted ? JSON.stringify(encoded) : encoded,
+      body,
     },
     store,
   });
@@ -135,13 +137,23 @@ function testCaptureAndDeduplication() {
   assert.ok(!store.accounts()[0].id.includes("12345"), "account id must not expose token suffix");
   assert.ok(!JSON.stringify(first.notifications).includes(TOKEN_A));
   assert.ok(!JSON.stringify(first.notifications).includes("12345"));
+  assert.strictEqual(first.notifications[0].subtitle, "Token获取成功");
 
   const previousId = store.accounts()[0].id;
-  const second = capture(store, TOKEN_B, { quoted: true });
+  const second = capture(store, TOKEN_B, { encoded: true, quoted: true });
   assert.strictEqual(store.accounts().length, 1, "rotated token with the same account suffix must replace the old record");
   assert.strictEqual(store.accounts()[0].id, previousId);
   assert.strictEqual(store.accounts()[0].token, TOKEN_B);
-  assert.strictEqual(second.notifications[0].subtitle, "账号已更新");
+  assert.strictEqual(second.notifications[0].subtitle, "Token获取成功");
+
+  const throttled = capture(store, TOKEN_B);
+  assert.strictEqual(throttled.notifications.length, 0, "unchanged high-frequency requests must not spam notifications");
+
+  const accounts = store.accounts();
+  accounts[0].lastCaptureNoticeAt = 0;
+  store.setAccounts(accounts);
+  const refreshed = capture(store, TOKEN_B);
+  assert.strictEqual(refreshed.notifications[0].subtitle, "Token已刷新");
 }
 
 function testSuccessfulCheckin() {
@@ -176,7 +188,7 @@ function testSuccessfulCheckin() {
           },
         });
       } else if (pathname.endsWith("/GetUserAndMallCard")) {
-        reply(callback, { m: 1, d: { Mobile: "13800138000", Bonus: 88 } }, { plainJson: true, useStatusCode: true });
+        reply(callback, { m: 1, d: { Mobile: "13800138000", Bonus: 88 } }, { useStatusCode: true });
       } else {
         assert.fail("unexpected endpoint: " + pathname);
       }
@@ -219,7 +231,7 @@ function testAlreadySignedAndBalance() {
     responder(params, callback) {
       const pathname = new URL(params.url).pathname;
       if (pathname.endsWith("/CheckinBefore")) {
-        reply(callback, { m: 1, d: { IsCheckIn: true, IsOpenCheckin: true } });
+        reply(callback, { m: 2054, d: { IsCheckIn: true, IsOpenCheckin: true }, e: "今天已经签到" });
       } else if (pathname.endsWith("/GetUserAndMallCard")) {
         reply(callback, { m: 1, d: { Bonus: 91 } });
       } else {
@@ -233,6 +245,32 @@ function testAlreadySignedAndBalance() {
     ["/api/user/user/CheckinBefore", "/api/user/user/GetUserAndMallCard"]
   );
   assert.strictEqual(result.doneArgumentCount, 0, "cron/generic execution must call zero-argument $done()");
+  const notice = result.notifications[result.notifications.length - 1];
+  assert.strictEqual(notice.subtitle, "执行完成（成功1，失败0）");
+  assert.ok(notice.body.includes("今日已签到"));
+  assert.ok(notice.body.includes("当前积分：91荟豆"));
+}
+
+function testAlreadySignedRaceAfterCheckinRequest() {
+  const store = createStore();
+  capture(store);
+
+  const result = runScript({
+    store,
+    responder(params, callback) {
+      const pathname = new URL(params.url).pathname;
+      if (pathname.endsWith("/CheckinBefore")) {
+        reply(callback, { m: 1, d: { IsCheckIn: false, IsOpenCheckin: true, IsOpenCheckinForPosition: false } });
+      } else if (pathname.endsWith("/CheckinV2")) {
+        reply(callback, { m: 2054, d: { Msg: "你今日已签到过了，明天再来吧", IsCheckIn: false }, e: "今天已经签到" });
+      } else if (pathname.endsWith("/GetUserAndMallCard")) {
+        reply(callback, { m: 1, d: { Bonus: 91 } });
+      } else {
+        assert.fail("unexpected endpoint: " + pathname);
+      }
+    },
+  });
+
   const notice = result.notifications[result.notifications.length - 1];
   assert.strictEqual(notice.subtitle, "执行完成（成功1，失败0）");
   assert.ok(notice.body.includes("今日已签到"));
@@ -355,21 +393,33 @@ function testStorageFailureAndInvalidCapture() {
 
 function testPluginConfiguration() {
   const plugin = fs.readFileSync(PLUGIN_PATH, "utf8");
-  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-3";
+  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-4";
   const scriptLines = plugin.split(/\r?\n/).filter((line) => /^(http-request|cron|generic) /.test(line));
+  const captureLine = scriptLines.find((line) => line.startsWith("http-request "));
+  const capturePattern = captureLine.match(/^http-request (.+) script-path=/)[1];
+  const captureRegex = new RegExp(capturePattern);
 
   assert.strictEqual(scriptLines.length, 3);
   assert.ok(scriptLines.every((line) => line.includes("script-path=" + rawUrl)));
   assert.ok(plugin.includes('cron "5 7 * * *"'));
   assert.ok(plugin.includes('timeout=600,tag=招商花园每日签到'));
   assert.ok(plugin.includes('timeout=600,argument="manual=1",tag=招商花园手动签到'));
-  assert.ok(plugin.includes("User\\/(?:CheckinV2|GetRewardList)"));
+  assert.ok(plugin.includes("User\\/CheckinV2"));
+  assert.ok(plugin.includes("Bonus\\/ZsskGetHuiDouList"));
   assert.ok(!plugin.includes("SCRIPT_URL"));
+  [
+    "https://m-bms.cmsk1979.com/api/user/user/GetUserAndMallCard",
+    "https://m-bms.cmsk1979.com/api/user/user/GetMallCard",
+    "https://m-bms.cmsk1979.com/api/user/user/CheckinBefore",
+    "https://m-bms.cmsk1979.com/api/user/User/CheckinV2",
+    "https://m-bms.cmsk1979.com/api/user/Bonus/ZsskGetHuiDouList",
+  ].forEach((url) => assert.ok(captureRegex.test(url), "capture URL must match: " + url));
 }
 
 testCaptureAndDeduplication();
 testSuccessfulCheckin();
 testAlreadySignedAndBalance();
+testAlreadySignedRaceAfterCheckinRequest();
 testAlreadySignedStillNotifiesWhenBalanceFails();
 testConsecutiveAuthFailureCleanup();
 testOptionalBalanceFailureDoesNotInvalidateSuccessfulSign();

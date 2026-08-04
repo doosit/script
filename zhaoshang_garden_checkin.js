@@ -2,13 +2,13 @@
  * 招商花园城签到（Loon）
  *
  * 功能：
- * 1. 从微信小程序请求体自动提取签到所需Token，不保存Cookie或整包请求头。
+ * 1. 从微信小程序JSON请求体自动提取签到所需Token，不保存Cookie或整包请求头。
  * 2. 按账号去重，只保留签到必需字段。
  * 3. 连续两次确认鉴权失效后自动删除账号；格式错误、重复和长期未刷新记录自动清理。
  * 4. 支持定时签到、手动执行和多账号。
  * 5. 签到成功后返回本次奖励与余额；已签到时返回状态与当前余额。
  *
- * 抓包结论：该接口并不依赖Cookie，鉴权信息位于Base64请求体的Header.Token中。
+ * 抓包结论：该接口并不依赖Cookie，鉴权信息位于JSON请求体的Header.Token中。
  */
 
 var CONFIG = {
@@ -18,6 +18,7 @@ var CONFIG = {
   maxAccounts: 10,
   staleDays: 365,
   maxAuthFailures: 2,
+  captureNoticeInterval: 60000,
   timeout: 12000,
   maxBodyLength: 262144,
   maxTokenLength: 4096,
@@ -140,7 +141,8 @@ function cleanAccounts(accounts) {
       token: String(item.token),
       systemInfo: normalizeSystemInfo(item.systemInfo),
       updatedAt: updatedAt,
-      authFailures: Math.max(0, Math.floor(Number(item.authFailures) || 0))
+      authFailures: Math.max(0, Math.floor(Number(item.authFailures) || 0)),
+      lastCaptureNoticeAt: Math.max(0, Math.floor(Number(item.lastCaptureNoticeAt) || 0))
     };
 
     if (normalized.authFailures >= CONFIG.maxAuthFailures || normalized.updatedAt < cutoff) {
@@ -179,20 +181,6 @@ function saveClean(accounts) {
   return result;
 }
 
-function utf8ToBytes(text) {
-  var encoded = encodeURIComponent(String(text));
-  var bytes = [];
-  for (var i = 0; i < encoded.length; i++) {
-    if (encoded[i] === "%") {
-      bytes.push(parseInt(encoded.substr(i + 1, 2), 16));
-      i += 2;
-    } else {
-      bytes.push(encoded.charCodeAt(i));
-    }
-  }
-  return bytes;
-}
-
 function bytesToUtf8(bytes) {
   var encoded = "";
   for (var i = 0; i < bytes.length; i++) {
@@ -206,28 +194,6 @@ function bytesToUtf8(bytes) {
     for (var j = 0; j < bytes.length; j++) fallback += String.fromCharCode(bytes[j]);
     return fallback;
   }
-}
-
-function base64EncodeUtf8(text) {
-  var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  var bytes = utf8ToBytes(text);
-  var output = "";
-
-  for (var i = 0; i < bytes.length; i += 3) {
-    var b1 = bytes[i];
-    var hasB2 = i + 1 < bytes.length;
-    var hasB3 = i + 2 < bytes.length;
-    var b2 = hasB2 ? bytes[i + 1] : 0;
-    var b3 = hasB3 ? bytes[i + 2] : 0;
-    var n = (b1 << 16) | (b2 << 8) | b3;
-
-    output += chars[(n >>> 18) & 63];
-    output += chars[(n >>> 12) & 63];
-    output += hasB2 ? chars[(n >>> 6) & 63] : "=";
-    output += hasB3 ? chars[n & 63] : "=";
-  }
-
-  return output;
 }
 
 function base64DecodeUtf8(input) {
@@ -291,7 +257,7 @@ function buildBody(account, extra) {
     Token: account.token,
     systemInfo: normalizeSystemInfo(account.systemInfo)
   };
-  return base64EncodeUtf8(JSON.stringify(data));
+  return JSON.stringify(data);
 }
 
 function postApi(path, account, extra, callback) {
@@ -375,6 +341,13 @@ function apiMessage(data) {
 
 function apiSucceeded(data) {
   return data && Number(data.m) === 1;
+}
+
+function isAlreadySigned(data, acceptStateFlag) {
+  if (!data || typeof data !== "object") return false;
+  var d = data.d && typeof data.d === "object" ? data.d : {};
+  var message = apiMessage(data);
+  return (acceptStateFlag === true && d.IsCheckIn === true) || (Number(data.m) === 2054 && /已签到/.test(message));
 }
 
 function maskMobile(value) {
@@ -502,15 +475,15 @@ function checkOne(account, callback) {
     var state = beforeData.d && typeof beforeData.d === "object" ? beforeData.d : {};
     var name = displayName(account, beforeData);
 
-    if (!apiSucceeded(beforeData)) {
-      callback({ ok: false, authState: "valid", text: name + "：" + apiMessage(beforeData) });
-      return;
-    }
-    if (state.IsCheckIn === true) {
+    if (isAlreadySigned(beforeData, true)) {
       var lines = [name + "：今日已签到"];
       appendBalance(account, lines, function (text) {
         callback({ ok: true, already: true, authState: "valid", text: text });
       });
+      return;
+    }
+    if (!apiSucceeded(beforeData)) {
+      callback({ ok: false, authState: "valid", text: name + "：" + apiMessage(beforeData) });
       return;
     }
     if (state.IsOpenCheckin === false) {
@@ -551,7 +524,12 @@ function checkOne(account, callback) {
       var message = apiMessage(body);
       var success = apiSucceeded(body) && (d.IsCheckIn === true || /签到成功|已签到/.test(message));
 
-      if (success) {
+      if (isAlreadySigned(body, false)) {
+        var alreadyLines = [displayName(account, body) + "：今日已签到"];
+        appendBalance(account, alreadyLines, function (text) {
+          callback({ ok: true, already: true, authState: "valid", text: text });
+        });
+      } else if (success) {
         var lines = [displayName(account, body) + "：签到成功"];
         lines.push("本次签到奖励：" + rewardFromSign(body));
         appendBalance(account, lines, function (text) {
@@ -639,28 +617,37 @@ function captureAccount() {
       }
     }
 
+    var systemInfo = normalizeSystemInfo(header.systemInfo || header.SystemInfo);
+    if (found >= 0) {
+      changed = accounts[found].token !== token || responseText(accounts[found].systemInfo) !== responseText(systemInfo);
+    } else {
+      changed = true;
+    }
+
+    var previousNoticeAt = found >= 0 ? Number(accounts[found].lastCaptureNoticeAt) || 0 : 0;
+    var capturedAt = now();
+    var shouldNotify = changed || capturedAt - previousNoticeAt >= CONFIG.captureNoticeInterval;
     var item = {
       id: id,
       mallId: mallId,
       token: token,
-      systemInfo: normalizeSystemInfo(header.systemInfo || header.SystemInfo),
-      updatedAt: now(),
-      authFailures: 0
+      systemInfo: systemInfo,
+      updatedAt: capturedAt,
+      authFailures: 0,
+      lastCaptureNoticeAt: shouldNotify ? capturedAt : previousNoticeAt
     };
 
     if (found >= 0) {
-      changed = accounts[found].token !== token || responseText(accounts[found].systemInfo) !== responseText(item.systemInfo);
       accounts[found] = item;
     } else {
       accounts.push(item);
-      changed = true;
     }
 
     var saved = saveClean(accounts);
     if (!saved.saved) {
       notify("账号保存失败", "无法写入Loon持久化存储，未确认账号是否保存成功。请检查存储状态后重新进入小程序。");
-    } else if (changed) {
-      notify("账号已更新", "已保存" + id + "；当前有效记录" + saved.accounts.length + "个。仅保存Token、MallID和必要的systemInfo。");
+    } else if (shouldNotify) {
+      notify(changed ? "Token获取成功" : "Token已刷新", "已保存账号" + id + "；当前有效记录" + saved.accounts.length + "个。仅保存Token、MallID和必要的systemInfo。");
     }
   } catch (e) {
     log("获取账号失败：" + safeText(e.message, "未知错误"));
