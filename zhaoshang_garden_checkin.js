@@ -2,13 +2,13 @@
  * 招商花园城签到（Loon）
  *
  * 功能：
- * 1. 从微信小程序JSON请求体自动提取签到所需Token，不保存Cookie或整包请求头。
+ * 1. 从微信小程序JSON请求体自动提取并持久化签到凭证Header.Token，不保存Cookie或整包请求头。
  * 2. 按账号去重，只保留签到必需字段。
- * 3. 连续两次确认鉴权失效后自动删除账号；格式错误、重复和长期未刷新记录自动清理。
+ * 3. 持久Token不按本地保存时间淘汰；仅在连续两次确认鉴权失效后自动删除账号。
  * 4. 支持定时签到、手动执行和多账号。
  * 5. 签到成功后返回本次奖励与余额；已签到时返回状态与当前余额。
  *
- * 抓包结论：该接口并不依赖Cookie，鉴权信息位于JSON请求体的Header.Token中。
+ * 抓包结论：两份HAR的成功请求均不含Cookie，且跨抓包复用同一个Header.Token。
  */
 
 var CONFIG = {
@@ -16,7 +16,6 @@ var CONFIG = {
   baseUrl: "https://m-bms.cmsk1979.com",
   storeKey: "ZS_GARDEN_ACCOUNTS_V1",
   maxAccounts: 10,
-  staleDays: 365,
   maxAuthFailures: 2,
   captureNoticeInterval: 60000,
   timeout: 12000,
@@ -121,7 +120,6 @@ function validAccount(item) {
 }
 
 function cleanAccounts(accounts) {
-  var cutoff = now() - CONFIG.staleDays * 86400000;
   var map = {};
   var cleaned = [];
   var removed = 0;
@@ -145,7 +143,7 @@ function cleanAccounts(accounts) {
       lastCaptureNoticeAt: Math.max(0, Math.floor(Number(item.lastCaptureNoticeAt) || 0))
     };
 
-    if (normalized.authFailures >= CONFIG.maxAuthFailures || normalized.updatedAt < cutoff) {
+    if (normalized.authFailures >= CONFIG.maxAuthFailures) {
       removed++;
       return;
     }
@@ -564,7 +562,7 @@ function runCheckin() {
     if (index >= accounts.length) {
       var finalClean = saveClean(accounts);
       var removed = initial.removed + finalClean.removed;
-      if (removed > 0) results.push("已自动清理" + removed + "条重复、过期或失效记录");
+      if (removed > 0) results.push("已自动清理" + removed + "条重复、格式错误或确认失效记录");
       if (!initial.saved || !finalClean.saved) results.push("本地账号状态保存失败，请检查Loon持久化存储");
       notify("执行完成（成功" + successCount + "，失败" + failureCount + "）", results.join("\n"));
       done();
@@ -647,7 +645,7 @@ function captureAccount() {
     if (!saved.saved) {
       notify("账号保存失败", "无法写入Loon持久化存储，未确认账号是否保存成功。请检查存储状态后重新进入小程序。");
     } else if (shouldNotify) {
-      notify(changed ? "Token获取成功" : "Token已刷新", "已保存账号" + id + "；当前有效记录" + saved.accounts.length + "个。仅保存Token、MallID和必要的systemInfo。");
+      notify(changed ? "Token获取成功" : "Token已刷新", "已持久化账号" + id + "；当前有效记录" + saved.accounts.length + "个。仅保存Header.Token、MallID和必要的systemInfo，不保存Cookie。");
     }
   } catch (e) {
     log("获取账号失败：" + safeText(e.message, "未知错误"));

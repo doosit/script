@@ -1,16 +1,16 @@
 #!name=招商花园城签到
-#!desc=自动提取JSON请求体Token、去重保存，每天07:05签到，返回签到状态及当前荟豆，并自动清理失效账号。
+#!desc=自动提取并持久化Header.Token（不使用Cookie），每天07:05签到并返回签到状态及当前荟豆。
 #!author=doosit
 #!homepage=https://github.com/doosit/script
 #!system=iOS
 #!loon_version=3.2.1(372)
 
-# 脚本地址：https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-4
+# 脚本地址：https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-5
 
 [Script]
-http-request ^https:\/\/m-bms\.cmsk1979\.com\/api\/user\/(?:user\/(?:GetUserAndMallCard|GetMallCard|CheckinBefore)|User\/CheckinV2|Bonus\/ZsskGetHuiDouList)$ script-path=https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-4,requires-body=true,timeout=15,tag=招商花园Token获取,enable=true
-cron "5 7 * * *" script-path=https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-4,timeout=600,tag=招商花园每日签到,enable=true
-generic script-path=https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-4,timeout=600,argument="manual=1",tag=招商花园手动签到,enable=true
+http-request ^https:\/\/m-bms\.cmsk1979\.com\/api\/user\/(?:user\/(?:GetUserAndMallCard|GetMallCard|CheckinBefore)|User\/CheckinV2|Bonus\/ZsskGetHuiDouList)$ script-path=https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-5,requires-body=true,timeout=15,tag=招商花园Token获取,enable=true
+cron "5 7 * * *" script-path=https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-5,timeout=600,tag=招商花园每日签到,enable=true
+generic script-path=https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-5,timeout=600,argument="manual=1",tag=招商花园手动签到,enable=true
 
 [MITM]
 hostname = m-bms.cmsk1979.com

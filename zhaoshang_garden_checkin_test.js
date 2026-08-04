@@ -305,6 +305,32 @@ function testAlreadySignedStillNotifiesWhenBalanceFails() {
   assert.ok(notice.body.includes("当前积分：查询失败"));
 }
 
+function testPersistentTokenIsNotRemovedByLocalAge() {
+  const store = createStore();
+  capture(store);
+  const accounts = store.accounts();
+  accounts[0].updatedAt = Date.now() - 800 * 86400000;
+  store.setAccounts(accounts);
+
+  const result = runScript({
+    store,
+    responder(params, callback) {
+      const pathname = new URL(params.url).pathname;
+      if (pathname.endsWith("/CheckinBefore")) {
+        reply(callback, { m: 2054, d: { IsCheckIn: true, IsOpenCheckin: true }, e: "今天已经签到" });
+      } else if (pathname.endsWith("/GetUserAndMallCard")) {
+        reply(callback, { m: 1, d: { Bonus: 91 } });
+      } else {
+        assert.fail("unexpected endpoint: " + pathname);
+      }
+    },
+  });
+
+  assert.strictEqual(store.accounts().length, 1, "persistent token must not be deleted only because it was stored long ago");
+  assert.ok(result.notifications[result.notifications.length - 1].subtitle.includes("成功1"));
+  assert.ok(result.requests.every((request) => request["auto-cookie"] === false));
+}
+
 function testConsecutiveAuthFailureCleanup() {
   const store = createStore();
   capture(store);
@@ -393,7 +419,7 @@ function testStorageFailureAndInvalidCapture() {
 
 function testPluginConfiguration() {
   const plugin = fs.readFileSync(PLUGIN_PATH, "utf8");
-  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-4";
+  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-5";
   const scriptLines = plugin.split(/\r?\n/).filter((line) => /^(http-request|cron|generic) /.test(line));
   const captureLine = scriptLines.find((line) => line.startsWith("http-request "));
   const capturePattern = captureLine.match(/^http-request (.+) script-path=/)[1];
@@ -421,6 +447,7 @@ testSuccessfulCheckin();
 testAlreadySignedAndBalance();
 testAlreadySignedRaceAfterCheckinRequest();
 testAlreadySignedStillNotifiesWhenBalanceFails();
+testPersistentTokenIsNotRemovedByLocalAge();
 testConsecutiveAuthFailureCleanup();
 testOptionalBalanceFailureDoesNotInvalidateSuccessfulSign();
 testStorageFailureAndInvalidCapture();
