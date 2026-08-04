@@ -6,7 +6,7 @@
  * 2. 按账号去重，只保留签到必需字段。
  * 3. 连续两次确认鉴权失效后自动删除账号；格式错误、重复和长期未刷新记录自动清理。
  * 4. 支持定时签到、手动执行和多账号。
- * 5. 签到后返回本次奖励、当前荟豆余额及奖励发放说明。
+ * 5. 签到成功后返回本次奖励与余额；已签到时返回状态与当前余额。
  *
  * 抓包结论：该接口并不依赖Cookie，鉴权信息位于Base64请求体的Header.Token中。
  */
@@ -443,46 +443,6 @@ function fetchCard(account, callback) {
   });
 }
 
-function todayKey() {
-  var d = new Date();
-  var y = d.getFullYear();
-  var m = String(d.getMonth() + 1);
-  var day = String(d.getDate());
-  if (m.length < 2) m = "0" + m;
-  if (day.length < 2) day = "0" + day;
-  return String(y) + m + day;
-}
-
-function dateKey(value) {
-  return String(value || "").replace(/[^0-9]/g, "").slice(0, 8);
-}
-
-function fetchTodayReward(account, callback) {
-  postApi("/api/user/User/GetRewardList", account, {
-    pageIndex: 1,
-    pageSize: 20,
-    LotteryVersion: 0,
-    LotteryUrl: null
-  }, function (result) {
-    if (result.transportError || result.httpError || result.parseError || result.requestError || !apiSucceeded(result.data)) {
-      callback("");
-      return;
-    }
-
-    var list = Array.isArray(result.data.d) ? result.data.d : [];
-    var today = todayKey();
-    for (var i = 0; i < list.length; i++) {
-      var item = list[i] || {};
-      if (dateKey(item.CheckinDateString || item.CheckinDate) === today) {
-        var reward = hasValue(item.Points) ? item.Points : item.RewardContent;
-        callback(safeText(reward, ""));
-        return;
-      }
-    }
-    callback("");
-  });
-}
-
 function appendBalance(account, lines, callback) {
   fetchCard(account, function (card) {
     if (card.ok) {
@@ -547,12 +507,9 @@ function checkOne(account, callback) {
       return;
     }
     if (state.IsCheckIn === true) {
-      fetchTodayReward(account, function (reward) {
-        var lines = [name + "：今日已签到"];
-        if (reward) lines.push("今日签到奖励：" + reward.replace(/^获得/, ""));
-        appendBalance(account, lines, function (text) {
-          callback({ ok: true, already: true, authState: "valid", text: text });
-        });
+      var lines = [name + "：今日已签到"];
+      appendBalance(account, lines, function (text) {
+        callback({ ok: true, already: true, authState: "valid", text: text });
       });
       return;
     }

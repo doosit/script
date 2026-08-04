@@ -210,11 +210,9 @@ function testSuccessfulCheckin() {
   assert.strictEqual(store.accounts()[0].authFailures, 0);
 }
 
-function testAlreadySignedAndRewardDate() {
+function testAlreadySignedAndBalance() {
   const store = createStore();
   capture(store);
-  const today = new Date();
-  const date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
 
   const result = runScript({
     store,
@@ -222,8 +220,6 @@ function testAlreadySignedAndRewardDate() {
       const pathname = new URL(params.url).pathname;
       if (pathname.endsWith("/CheckinBefore")) {
         reply(callback, { m: 1, d: { IsCheckIn: true, IsOpenCheckin: true } });
-      } else if (pathname.endsWith("/GetRewardList")) {
-        reply(callback, { m: 1, d: [{ CheckinDateString: date, Points: "3荟豆" }] });
       } else if (pathname.endsWith("/GetUserAndMallCard")) {
         reply(callback, { m: 1, d: { Bonus: 91 } });
       } else {
@@ -232,10 +228,43 @@ function testAlreadySignedAndRewardDate() {
     },
   });
 
-  assert.ok(!result.requests.some((item) => item.url.endsWith("/CheckinV2")));
+  assert.deepStrictEqual(
+    result.requests.map((item) => new URL(item.url).pathname),
+    ["/api/user/user/CheckinBefore", "/api/user/user/GetUserAndMallCard"]
+  );
+  assert.strictEqual(result.doneArgumentCount, 0, "cron/generic execution must call zero-argument $done()");
   const notice = result.notifications[result.notifications.length - 1];
-  assert.ok(notice.body.includes("今日签到奖励：3荟豆"));
+  assert.strictEqual(notice.subtitle, "执行完成（成功1，失败0）");
+  assert.ok(notice.body.includes("今日已签到"));
   assert.ok(notice.body.includes("当前积分：91荟豆"));
+}
+
+function testAlreadySignedStillNotifiesWhenBalanceFails() {
+  const store = createStore();
+  capture(store);
+
+  const result = runScript({
+    store,
+    responder(params, callback) {
+      const pathname = new URL(params.url).pathname;
+      if (pathname.endsWith("/CheckinBefore")) {
+        reply(callback, { m: 1, d: { IsCheckIn: true, IsOpenCheckin: true } });
+      } else if (pathname.endsWith("/GetUserAndMallCard")) {
+        callback("network offline");
+      } else {
+        assert.fail("unexpected endpoint: " + pathname);
+      }
+    },
+  });
+
+  assert.deepStrictEqual(
+    result.requests.map((item) => new URL(item.url).pathname),
+    ["/api/user/user/CheckinBefore", "/api/user/user/GetUserAndMallCard"]
+  );
+  const notice = result.notifications[result.notifications.length - 1];
+  assert.strictEqual(notice.subtitle, "执行完成（成功1，失败0）");
+  assert.ok(notice.body.includes("今日已签到"));
+  assert.ok(notice.body.includes("当前积分：查询失败"));
 }
 
 function testConsecutiveAuthFailureCleanup() {
@@ -326,7 +355,7 @@ function testStorageFailureAndInvalidCapture() {
 
 function testPluginConfiguration() {
   const plugin = fs.readFileSync(PLUGIN_PATH, "utf8");
-  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-2";
+  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-3";
   const scriptLines = plugin.split(/\r?\n/).filter((line) => /^(http-request|cron|generic) /.test(line));
 
   assert.strictEqual(scriptLines.length, 3);
@@ -340,7 +369,8 @@ function testPluginConfiguration() {
 
 testCaptureAndDeduplication();
 testSuccessfulCheckin();
-testAlreadySignedAndRewardDate();
+testAlreadySignedAndBalance();
+testAlreadySignedStillNotifiesWhenBalanceFails();
 testConsecutiveAuthFailureCleanup();
 testOptionalBalanceFailureDoesNotInvalidateSuccessfulSign();
 testStorageFailureAndInvalidCapture();
