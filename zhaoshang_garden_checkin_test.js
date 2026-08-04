@@ -138,6 +138,8 @@ function testCaptureAndDeduplication() {
   assert.ok(!JSON.stringify(first.notifications).includes(TOKEN_A));
   assert.ok(!JSON.stringify(first.notifications).includes("12345"));
   assert.strictEqual(first.notifications[0].subtitle, "Token获取成功");
+  assert.ok(first.logs.some((line) => line.includes("运行模式：HTTP-REQUEST Token捕获")));
+  assert.ok(first.logs.some((line) => line.includes("Token持久化完成")));
 
   const previousId = store.accounts()[0].id;
   const second = capture(store, TOKEN_B, { encoded: true, quoted: true });
@@ -148,6 +150,7 @@ function testCaptureAndDeduplication() {
 
   const throttled = capture(store, TOKEN_B);
   assert.strictEqual(throttled.notifications.length, 0, "unchanged high-frequency requests must not spam notifications");
+  assert.ok(throttled.logs.some((line) => line.includes("状态=已刷新")), "throttled capture must remain visible in logs");
 
   const accounts = store.accounts();
   accounts[0].lastCaptureNoticeAt = 0;
@@ -331,6 +334,35 @@ function testPersistentTokenIsNotRemovedByLocalAge() {
   assert.ok(result.requests.every((request) => request["auto-cookie"] === false));
 }
 
+function testCronWithEmptyRequestObjectRunsCheckin() {
+  const store = createStore();
+  capture(store);
+
+  const result = runScript({
+    request: {},
+    store,
+    responder(params, callback) {
+      const pathname = new URL(params.url).pathname;
+      if (pathname.endsWith("/CheckinBefore")) {
+        reply(callback, { m: 2054, d: { IsCheckIn: true, IsOpenCheckin: true }, e: "今天已经签到" });
+      } else if (pathname.endsWith("/GetUserAndMallCard")) {
+        reply(callback, { m: 1, d: { Bonus: 91 } });
+      } else {
+        assert.fail("unexpected endpoint: " + pathname);
+      }
+    },
+  });
+
+  assert.deepStrictEqual(
+    result.requests.map((item) => new URL(item.url).pathname),
+    ["/api/user/user/CheckinBefore", "/api/user/user/GetUserAndMallCard"]
+  );
+  assert.strictEqual(result.doneArgumentCount, 0, "cron with an empty $request object must call zero-argument $done()");
+  assert.ok(result.logs.some((line) => line.includes("运行模式：CRON/GENERIC签到")));
+  assert.ok(result.logs.some((line) => line.includes("有效账号数=1")));
+  assert.ok(result.logs.some((line) => line.includes("今日已签到")));
+}
+
 function testConsecutiveAuthFailureCleanup() {
   const store = createStore();
   capture(store);
@@ -415,11 +447,12 @@ function testStorageFailureAndInvalidCapture() {
   assert.strictEqual(JSON.stringify(invalid.doneValue), "{}");
   assert.strictEqual(invalidStore.accounts().length, 0);
   assert.strictEqual(invalid.notifications.length, 0);
+  assert.ok(invalid.logs.some((line) => line.includes("Token捕获失败")));
 }
 
 function testPluginConfiguration() {
   const plugin = fs.readFileSync(PLUGIN_PATH, "utf8");
-  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-5";
+  const rawUrl = "https://raw.githubusercontent.com/doosit/script/main/zhaoshang_garden_checkin.js?v=20260804-6";
   const scriptLines = plugin.split(/\r?\n/).filter((line) => /^(http-request|cron|generic) /.test(line));
   const captureLine = scriptLines.find((line) => line.startsWith("http-request "));
   const capturePattern = captureLine.match(/^http-request (.+) script-path=/)[1];
@@ -448,6 +481,7 @@ testAlreadySignedAndBalance();
 testAlreadySignedRaceAfterCheckinRequest();
 testAlreadySignedStillNotifiesWhenBalanceFails();
 testPersistentTokenIsNotRemovedByLocalAge();
+testCronWithEmptyRequestObjectRunsCheckin();
 testConsecutiveAuthFailureCleanup();
 testOptionalBalanceFailureDoesNotInvalidateSuccessfulSign();
 testStorageFailureAndInvalidCapture();

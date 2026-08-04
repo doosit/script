@@ -42,6 +42,7 @@ function done(value) {
 }
 
 function notify(subtitle, body) {
+  log("结果：" + safeText(subtitle, "无标题") + (body ? "\n" + safeText(body, "", 2000) : ""));
   if (typeof $notification !== "undefined") {
     $notification.post(CONFIG.name, subtitle || "", body || "");
   }
@@ -284,23 +285,29 @@ function postApi(path, account, extra, callback) {
   }
 
   var responseStarted = false;
+  log("请求接口：" + path);
   try {
     $httpClient.post(params, function (error, response, data) {
       responseStarted = true;
       if (error) {
+        log("接口失败：" + path + "；网络错误=" + safeText(error, "未知网络错误"));
         callback({ transportError: safeText(error, "未知网络错误") });
         return;
       }
 
       var status = response && Number(response.status || response.statusCode);
       if (!status || status < 200 || status >= 300) {
+        log("接口失败：" + path + "；HTTP=" + (status || 0));
         callback({ httpError: status || 0, authFailure: status === 401 || status === 403 });
         return;
       }
 
       try {
-        callback({ data: parseEncodedJson(data) });
+        var parsed = parseEncodedJson(data);
+        log("接口响应：" + path + "；HTTP=" + status + "；业务码=" + safeText(parsed && parsed.m, "无"));
+        callback({ data: parsed });
       } catch (e) {
+        log("接口失败：" + path + "；响应解析错误=" + safeText(e.message, "未知解析错误"));
         callback({ parseError: safeText(e.message, "未知解析错误") });
       }
     });
@@ -544,6 +551,7 @@ function checkOne(account, callback) {
 function runCheckin() {
   var initial = saveClean(readStore());
   var accounts = initial.accounts;
+  log("签到任务启动；有效账号数=" + accounts.length);
 
   if (!accounts.length) {
     var emptyText = "请先开启Loon MITM，再进入招商花园城微信小程序任意会员或签到页面。脚本会从请求体自动提取Token。";
@@ -585,12 +593,14 @@ function runCheckin() {
 function captureAccount() {
   try {
     if (!$request || !$request.body) {
+      log("Token捕获跳过：请求体为空");
       done({});
       return;
     }
 
     var payload = parseEncodedJson($request.body);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      log("Token捕获失败：请求体不是有效JSON对象");
       done({});
       return;
     }
@@ -599,6 +609,7 @@ function captureAccount() {
     var mallId = Number(payload.MallID || payload.MallId || payload.mallID || payload.mallId || 0);
 
     if (token.length < 12 || token.length > CONFIG.maxTokenLength || !isFinite(mallId) || mallId <= 0 || Math.floor(mallId) !== mallId) {
+      log("Token捕获失败：未找到有效的Header.Token或MallID");
       done({});
       return;
     }
@@ -644,18 +655,26 @@ function captureAccount() {
     var saved = saveClean(accounts);
     if (!saved.saved) {
       notify("账号保存失败", "无法写入Loon持久化存储，未确认账号是否保存成功。请检查存储状态后重新进入小程序。");
-    } else if (shouldNotify) {
-      notify(changed ? "Token获取成功" : "Token已刷新", "已持久化账号" + id + "；当前有效记录" + saved.accounts.length + "个。仅保存Header.Token、MallID和必要的systemInfo，不保存Cookie。");
+    } else {
+      log("Token持久化完成；MallID=" + mallId + "；账号=" + id + "；状态=" + (changed ? "已更新" : "已刷新") + "；有效账号数=" + saved.accounts.length);
+      if (shouldNotify) {
+        notify(changed ? "Token获取成功" : "Token已刷新", "已持久化账号" + id + "；当前有效记录" + saved.accounts.length + "个。仅保存Header.Token、MallID和必要的systemInfo，不保存Cookie。");
+      }
     }
   } catch (e) {
-    log("获取账号失败：" + safeText(e.message, "未知错误"));
+    log("Token捕获失败：" + safeText(e.message, "未知错误"));
   }
 
   done({});
 }
 
-if (typeof $request !== "undefined" && $request) {
+var hasHttpRequestContext = typeof $request !== "undefined" && $request &&
+  typeof $request.url === "string" && /^https?:\/\//i.test($request.url);
+
+if (hasHttpRequestContext) {
+  log("运行模式：HTTP-REQUEST Token捕获");
   captureAccount();
 } else {
+  log("运行模式：CRON/GENERIC签到");
   runCheckin();
 }
