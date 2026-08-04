@@ -36,7 +36,9 @@ var finished = false;
 function done(value) {
   if (finished) return;
   finished = true;
-  if (typeof $done === "function") $done(value);
+  if (typeof $done !== "function") return;
+  if (value === undefined) $done();
+  else $done(value);
 }
 
 function notify(subtitle, body) {

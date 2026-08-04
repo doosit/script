@@ -41,6 +41,7 @@ function runScript({ request, store, responder }) {
   const requests = [];
   const logs = [];
   let doneCount = 0;
+  let doneArgumentCount = -1;
   let doneValue;
 
   const sandbox = {
@@ -52,6 +53,7 @@ function runScript({ request, store, responder }) {
     },
     $done(value) {
       doneCount += 1;
+      doneArgumentCount = arguments.length;
       doneValue = value;
     },
     console: {
@@ -73,7 +75,7 @@ function runScript({ request, store, responder }) {
 
   vm.runInNewContext(SOURCE, sandbox, { filename: SCRIPT_PATH });
   assert.strictEqual(doneCount, 1, "script must call $done exactly once");
-  return { doneValue, logs, notifications, requests };
+  return { doneArgumentCount, doneValue, logs, notifications, requests };
 }
 
 function encodeApiBody(value) {
@@ -127,6 +129,7 @@ function testCaptureAndDeduplication() {
   const store = createStore();
   const first = capture(store);
   assert.strictEqual(JSON.stringify(first.doneValue), "{}");
+  assert.strictEqual(first.doneArgumentCount, 1, "http-request capture must call $done({})");
   assert.strictEqual(store.accounts().length, 1);
   assert.strictEqual(store.accounts()[0].token, TOKEN_A);
   assert.ok(!store.accounts()[0].id.includes("12345"), "account id must not expose token suffix");
@@ -197,6 +200,7 @@ function testSuccessfulCheckin() {
   assert.strictEqual(decodeApiBody(result.requests[1].body).Header.Token, TOKEN_A);
 
   const notice = result.notifications[result.notifications.length - 1];
+  assert.strictEqual(result.doneArgumentCount, 0, "cron/generic execution must call zero-argument $done()");
   assert.strictEqual(notice.subtitle, "执行完成（成功1，失败0）");
   assert.ok(notice.body.includes("138****8000：签到成功"));
   assert.ok(notice.body.includes("本次签到奖励：5荟豆"));
