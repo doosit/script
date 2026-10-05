@@ -8,11 +8,9 @@ const CFG = {
     /* ---- 关键词(核心): 按数组顺序依次查询, 命中且碎片够就兑换 ---- */
     /* 字符串 = 包含匹配, 也支持正则字符串如 "/^捞派/" ; 对象可单独指定该关键词最多兑几件 */
     KEYWORDS: [
-        "土豆",
-        "娃娃菜",
-        "虾滑",
-        "鸭血",
+        "捞派魔芋素",
         "巴沙鱼",
+        "捞派鸭肠",
         // { name: "毛肚", max: 1 },
     ],
 
@@ -34,6 +32,16 @@ const CFG = {
     REQUIRE_PAY_STATUS: false,      // true = 必须 commodityPayStatus===1 才兑(更严); false = 纯按碎片数判断(推荐)
     SKIP_ALREADY_EXCHANGED: true,   // 跳过本周期内已兑换过的商品(commodityMemberExchangeCount>0)
     AUTO_LOWEST_WHEN_EMPTY: false,  // 关键词全都没命中时, 是否兜底兑"最便宜的碎片够的商品"
+
+    /* ---- 关键词优先级策略(默认严格优先级) ---- */
+    /* false = 严格优先级(默认): 第一个"本期有货"的关键词碎片不够, 本次就什么都不兑,
+     *         绝不降级去买后面的便宜货, 攒着等它
+     *         例: [魔芋, 鸭肠, 沙沙土豆] 碎片只够土豆 -> 不兑, 继续攒
+     *         注意: 只有"碎片不够"才拦住; 高优先级商品本期已兑过/不可兑时会正常往下走
+     * true  = 高优先级关键词碎片不够时, 继续往下试后面的关键词
+     *         例: [魔芋, 鸭肠, 沙沙土豆] 碎片只够土豆 -> 兑土豆 */
+    FALLTHROUGH_WHEN_UNAFFORDABLE: false,
+
     DRY_RUN: false,                 // true = 只报告将要兑换什么, 不真正下单(先试运行)
     DEBUG_LIST: false,              // true = 日志打印完整商品清单
 
@@ -52,7 +60,7 @@ const CFG = {
 };
 
 /* ============================ ② 常量 / 环境 ============================ */
-const SCRIPT_VERSION = "2026-10-05.r2";
+const SCRIPT_VERSION = "2026-10-05.r3";
 
 const $ = new Env("海底捞·好礼天天兑");
 $.log(`[INFO] 兑换脚本版本 ${SCRIPT_VERSION}`);
@@ -453,6 +461,7 @@ class UserInfo {
         }
 
         let runCount = 0;
+        let strictHold = '';   // 严格优先级模式下, 因为碎片不够而卡住的关键词
         const exchanged = [];
 
         for (const kw of kws) {
@@ -470,7 +479,23 @@ class UserInfo {
 
             const pool = pickCandidates(list, kw, balance, st);
             if (!pool.length) {
-                $.log(`[${tag}] 关键词「${kw.name}」暂无可兑换商品(碎片${balance})`);
+                const matched = matchItems(list, kw);
+                if (!matched.length) {
+                    $.log(`[${tag}] 关键词「${kw.name}」本期没有对应商品, 跳过`);
+                    continue;
+                }
+                /* 本期有这件商品: 区分"碎片不够"还是"已兑过/不可兑" */
+                const budgetless = pickCandidates(list, kw, balance, st, true);
+                if (!budgetless.length) {
+                    $.log(`[${tag}] 关键词「${kw.name}」本期商品已兑过或不可兑, 继续试后面的关键词`);
+                    continue;
+                }
+                if (!CFG.FALLTHROUGH_WHEN_UNAFFORDABLE) {
+                    strictHold = kw.name;
+                    DoubleLog(`⏸️${tag} >> 「${kw.name}」本期最低需${matched[0].consumeAmount}🧩, 当前${balance}🧩 不够; 严格优先级下不降级去买后面的商品`);
+                    break;
+                }
+                $.log(`[${tag}] 关键词「${kw.name}」暂无可兑换商品(碎片${balance}), 继续试后面的关键词`);
                 continue;
             }
 
@@ -534,6 +559,10 @@ class UserInfo {
         if (!exchanged.length) {
             if (!kws.length) {
                 DoubleLog(`ℹ️${tag} >> 未配置关键词, 未兑换`);
+            } else if (strictHold) {
+                const it = matchItems(list, { name: strictHold, max: 1 })[0];
+                const cost = it ? Number(it.consumeAmount) : 0;
+                DoubleLog(`ℹ️${tag} >> 碎片不足, 严格优先级下攒着等「${strictHold}」${cost ? `(需${cost}🧩, 当前${balance}🧩, 还差${Math.max(0, cost - balance)}🧩)` : ''}, 本次未兑换`);
             } else {
                 const kwList = list.filter(c => {
                     const n = String(c.commodityName || '');
@@ -545,7 +574,11 @@ class UserInfo {
                 } else {
                     const cheapest = kwList[0];
                     const cost = Number(cheapest.consumeAmount);
-                    DoubleLog(`ℹ️${tag} >> 碎片不足, 未兑换(当前${balance}🧩, 关键词商品「${cheapest.commodityName}」需${cost}🧩, 还差${cost - balance}🧩)`);
+                    if (cost > balance) {
+                        DoubleLog(`ℹ️${tag} >> 碎片不足, 未兑换(当前${balance}🧩, 关键词商品「${cheapest.commodityName}」需${cost}🧩, 还差${cost - balance}🧩)`);
+                    } else {
+                        DoubleLog(`ℹ️${tag} >> 未兑换(当前${balance}🧩, 关键词商品「${cheapest.commodityName}」需${cost}🧩, 已兑过或被阈值拦下)`);
+                    }
                 }
                 if (CFG.DEBUG_LIST) $.log(dumpList(list, tag, true));
             }
@@ -600,19 +633,29 @@ function matchKeyword(name, kw) {
     return String(name).indexOf(k) > -1;
 }
 
-/* 从商品清单里挑出该关键词可用目标(按碎片从低到高) */
-function pickCandidates(list, kw, balance, st) {
-    const res = [];
-    for (const c of list) {
+/* 本期命中该关键词的在售商品(不看碎片够不够), 按碎片从低到高 */
+function matchItems(list, kw) {
+    return list.filter(c => {
         const name = String(c.commodityName || '');
-        if (!matchKeyword(name, kw)) continue;
-        if ((CFG.EXCLUDE_KEYWORDS || []).some(x => x && name.indexOf(x) > -1)) continue;
-        if (Number(c.commoditySaleStatus) !== 1) continue;            // 1 = 在售
+        if (!matchKeyword(name, kw)) return false;
+        if ((CFG.EXCLUDE_KEYWORDS || []).some(x => x && name.indexOf(x) > -1)) return false;
+        if (Number(c.commoditySaleStatus) !== 1) return false;         // 1 = 在售
+        return Number(c.consumeAmount || 0) > 0;
+    }).sort((a, b) => Number(a.consumeAmount) - Number(b.consumeAmount));
+}
+
+/* 从"命中该关键词的商品"里再挑出这次真能兑的
+ * ignoreBudget = true 时忽略"碎片够不够/阈值"这类预算类限制,
+ * 用来区分"碎片不够(要严格拦住)"和"已经兑过/不可兑(可以继续往下走)" */
+function pickCandidates(list, kw, balance, st, ignoreBudget) {
+    const res = [];
+    for (const c of matchItems(list, kw)) {
         const cost = Number(c.consumeAmount || 0);
-        if (!(cost > 0)) continue;
-        if (cost > balance) continue;                                  // 碎片不够 -> 不兑
-        if (CFG.MAX_CONSUME_AMOUNT > 0 && cost > CFG.MAX_CONSUME_AMOUNT) continue;
-        if (CFG.MIN_KEEP_FRAGMENTS > 0 && (balance - cost) < CFG.MIN_KEEP_FRAGMENTS) continue;
+        if (!ignoreBudget) {
+            if (cost > balance) continue;                              // 碎片不够 -> 不兑
+            if (CFG.MAX_CONSUME_AMOUNT > 0 && cost > CFG.MAX_CONSUME_AMOUNT) continue;
+            if (CFG.MIN_KEEP_FRAGMENTS > 0 && (balance - cost) < CFG.MIN_KEEP_FRAGMENTS) continue;
+        }
         if (CFG.REQUIRE_PAY_STATUS && Number(c.commodityPayStatus) !== 1) continue;
         if (CFG.SKIP_ALREADY_EXCHANGED) {
             if (Number(c.commodityMemberExchangeCount || 0) > 0) continue;
