@@ -1,15 +1,15 @@
 #!name = 移动爱购实物商品去时间蒙板
-#!desc = v2 增加商品 HTML 入口处理和“查看型号规格”可见入口，支持读取 HAR 规格快照并手动打开页面规格。仅处理指定 iPhone Duo 商品；不会自动下单。请更新整个启动器后重新进入商品页。
+#!desc = v3 将规格入口移到右侧中部，打开规格后缩成“规格”小按钮。支持查看 HAR 规格快照并手动打开页面规格；仅处理指定商品，不会自动下单。
 #!author = Codex
 #!homepage = https://github.com/doosit/script
 #!date = 2026-10-16
 
 # HTML 分支由脚本按 terminalPageId 二次限定；不匹配账号、商品或订单接口。
 [Script]
-http-request ^https:\/\/wx\.10086\.cn\/website\/businessOnline\/physicalDetail(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-2,requires-body=false,timeout=10,tag=实物商品页面缓存刷新,enable=true
-http-response ^https:\/\/wx\.10086\.cn\/website\/businessOnline\/physicalDetail(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-2,requires-body=true,timeout=10,tag=实物商品规格预览入口,enable=true
-http-request ^https:\/\/activity\.cmcc-cs\.cn\/website\/h5\/static\/js\/subPackage-physicalGoods-physicalDetail\.[0-9a-f]+\.js(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-2,requires-body=false,timeout=10,tag=实物商品详情脚本缓存刷新,enable=true
-http-response ^https:\/\/activity\.cmcc-cs\.cn\/website\/h5\/static\/js\/subPackage-physicalGoods-physicalDetail\.[0-9a-f]+\.js(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-2,requires-body=true,timeout=10,tag=实物商品前端时间蒙板解除,enable=true
+http-request ^https:\/\/wx\.10086\.cn\/website\/businessOnline\/physicalDetail(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-3,requires-body=false,timeout=10,tag=实物商品页面缓存刷新,enable=true
+http-response ^https:\/\/wx\.10086\.cn\/website\/businessOnline\/physicalDetail(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-3,requires-body=true,timeout=10,tag=实物商品规格预览入口,enable=true
+http-request ^https:\/\/activity\.cmcc-cs\.cn\/website\/h5\/static\/js\/subPackage-physicalGoods-physicalDetail\.[0-9a-f]+\.js(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-3,requires-body=false,timeout=10,tag=实物商品详情脚本缓存刷新,enable=true
+http-response ^https:\/\/activity\.cmcc-cs\.cn\/website\/h5\/static\/js\/subPackage-physicalGoods-physicalDetail\.[0-9a-f]+\.js(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc_physical_detail_unmask_loon.js?v=20261016-3,requires-body=true,timeout=10,tag=实物商品前端时间蒙板解除,enable=true
 
 [MITM]
 hostname = wx.10086.cn, activity.cmcc-cs.cn

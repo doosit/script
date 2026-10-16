@@ -1,5 +1,5 @@
 /*
- * 移动爱购实物商品去时间蒙板，版本 20261016-2。
+ * 移动爱购实物商品去时间蒙板，版本 20261016-3。
  * 仅处理用户 HAR 中的第一个商品，不改写活动接口或订单响应。
  * 商品标识是公开商品编号，不是账号标识或鉴权凭据。
  */
@@ -10,7 +10,7 @@
   var result = {};
   var targetItemId = "2609141559270262374";
   var targetPageId = "2026092316440991402007663";
-  var marker = "/* cmcc-physical-detail-unmask 20261016-2 */";
+  var marker = "/* cmcc-physical-detail-unmask 20261016-3 */";
   var htmlMarker = "cmcc-physical-spec-preview-v2";
   var snapshot = {
     itemId: targetItemId,
@@ -59,15 +59,15 @@
     style.textContent = [
       "#cmcc-physical-spec-preview-v2 {",
       "  position: fixed;",
-      "  right: 12px;",
-      "  bottom: 110px;",
+      "  right: 8px;",
+      "  top: 38%;",
       "  z-index: 2147483646;",
-      "  padding: 10px 14px;",
+      "  padding: 6px 10px;",
       "  border: 0;",
       "  border-radius: 8px;",
       "  background: #175cd3;",
       "  color: #fff;",
-      "  font: 14px sans-serif;",
+      "  font: 12px sans-serif;",
       "}",
       "#cmcc-spec-dialog-v2 {",
       "  position: fixed;",
@@ -120,7 +120,7 @@
       "}",
     ].join("\n");
 
-    var trigger = element("button", "查看型号规格 · v2", document.body);
+    var trigger = element("button", "查看规格 · v3", document.body);
     trigger.id = "cmcc-physical-spec-preview-v2";
     trigger.type = "button";
     var dialog = element("div", "", document.body);
@@ -154,7 +154,7 @@
     config.parameters.forEach(function (parameter) {
       element("p", parameter[0] + "：" + parameter[1], details);
     });
-    var status = element("p", "页面入口已加载 · v2", panel);
+    var status = element("p", "页面入口已加载 · v3", panel);
     var open = element("button", "打开页面规格", panel);
     var close = element("button", "关闭", panel);
     open.type = "button";
@@ -223,7 +223,7 @@
         detail.curNorms.purchaseMethod = 2;
         detail.showBase = true;
         dialog.style.display = "none";
-        trigger.textContent = "规格入口已打开 · v2";
+        trigger.textContent = "规格";
       } catch (_) {
         status.textContent = "页面组件未能打开；仍可查看上方抓包规格。";
       }
@@ -330,7 +330,7 @@
         "cache-control",
       ]);
       pageHeaders["Cache-Control"] = "no-store";
-      log("响应阶段：已注入可见规格入口 v2");
+      log("响应阶段：已注入可见规格入口 v3");
       return {
         headers: pageHeaders,
         body: body.replace(/<\/body>/i, function (ending) {
