@@ -1,0 +1,14 @@
+#!name = 移动云盘会员日去蒙板
+#!desc = 隐藏会员宠爱礼和盲盒区的未开始蒙板。添加此启动器后自动加载配套脚本；启用复写与 MitM，再重新进入活动。真实活动时间、资格、库存和抽奖次数保持原样。
+#!author = Codex
+#!homepage = https://github.com/doosit/script
+#!date = 2026-10-16
+
+# 与仓库现有插件使用相同的 Script 配置格式。
+# 请求和响应引用同一个脚本版本；只匹配会员日活动样式。
+[Script]
+http-request ^https:\/\/img\.mcloud\.139\.com\/portal\/cloudCircle\/public\/css\/mCloudDay\.[0-9a-f]+\.css(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/mcloud_memberday_unmask_loon.js?v=20261016-2,requires-body=false,timeout=10,tag=云盘会员日样式缓存刷新,enable=true
+http-response ^https:\/\/img\.mcloud\.139\.com\/portal\/cloudCircle\/public\/css\/mCloudDay\.[0-9a-f]+\.css(?:\?.*)?$ script-path=https://raw.githubusercontent.com/doosit/script/main/mcloud_memberday_unmask_loon.js?v=20261016-2,requires-body=true,timeout=10,tag=云盘会员日去蒙板,enable=true
+
+[MITM]
+hostname = img.mcloud.139.com
