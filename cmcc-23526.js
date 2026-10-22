@@ -1,4 +1,4 @@
-/* 移动爱购 23526 · Loon · v1.0.0
+/* 移动爱购 23526 · Loon · v1.0.1
  * 使用当前页面请求的 phone，不内置、不持久保存抓包凭据。
  * mid / SKU id / mcdsId(specId) 是三个不同编号；只用真实映射加购。
  */
@@ -157,7 +157,7 @@
     'use strict';
     if (window.__loon23526) return;
     window.__loon23526 = true;
-    var phone = '', channel = '', busy = false, booted = false, pending = false;
+    var phone = '', channel = '', busy = false, booted = false, pending = false, expanded = false;
     var product = null, panel, message, select, addButton, refreshButton;
     var targetPage = /[?&]mid=23526(?:&|$)/.test(location.search);
     var originalFetch = window.fetch.bind(window);
@@ -253,19 +253,25 @@
       if (booted || !document.body) return;
       booted = true;
       var style = document.createElement('style');
-      style.textContent = '#loon-mid23526-panel{position:fixed;z-index:2147483646;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));box-sizing:border-box;background:#fff;color:#202938;border:1px solid #dce3ed;border-radius:16px;box-shadow:0 5px 24px #25365630;padding:16px;font:14px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;max-height:70vh;overflow:auto}#loon-mid23526-panel *{box-sizing:border-box}#loon-mid23526-panel strong{font-size:17px;display:block;padding-right:32px}#loon-mid23526-panel p{margin:9px 0;color:#526173;white-space:pre-wrap;overflow-wrap:anywhere}#loon-mid23526-panel select{width:100%;padding:10px;border:1px solid #dce3ed;border-radius:8px;background:#fff;color:#202938}#loon-mid23526-panel button{min-height:42px;padding:8px 14px;border:0;border-radius:9px;font-size:14px;background:#eaf0f8;color:#245686}#loon-mid23526-panel button:disabled{opacity:.45}#loon-mid23526-panel [data-add]{flex:1;background:#0873e8;color:#fff}#loon-mid23526-panel .loon-actions{display:flex;gap:8px;margin-top:10px}#loon-mid23526-panel [data-fold]{position:absolute;right:10px;top:8px;background:transparent;min-height:32px;padding:4px 8px}#loon-mid23526-panel small{display:block;margin-top:8px;color:#65758a}body{padding-bottom:280px!important}';
+      style.textContent = '#loon-mid23526-panel{position:relative;box-sizing:border-box;margin:12px;padding:12px;background:#fff;color:#202938;border:1px solid #dce3ed;border-radius:12px;font:14px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;overflow-wrap:anywhere}#loon-mid23526-panel *{box-sizing:border-box}#loon-mid23526-panel .loon-heading{display:flex;align-items:center;gap:12px}#loon-mid23526-panel strong{font-size:15px;flex:1;min-width:0}#loon-mid23526-panel [hidden]{display:none!important}#loon-mid23526-panel p{margin:10px 0;color:#526173;white-space:pre-wrap}#loon-mid23526-panel select{display:block;width:100%;min-width:0;padding:10px;border:1px solid #dce3ed;border-radius:8px;background:#fff;color:#202938}#loon-mid23526-panel button{min-height:42px;padding:8px 14px;border:0;border-radius:9px;font-size:14px;background:#eaf0f8;color:#245686}#loon-mid23526-panel button:disabled{opacity:.45}#loon-mid23526-panel [data-add]{flex:1;background:#0873e8;color:#fff}#loon-mid23526-panel .loon-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}#loon-mid23526-panel [data-fold]{flex-shrink:0;min-height:36px;padding:6px 12px}#loon-mid23526-panel small{display:block;margin-top:8px;color:#65758a}';
       document.head.appendChild(style);
       panel = document.createElement('aside'); panel.id = 'loon-mid23526-panel';
       panel.setAttribute('aria-label','商品23526辅助面板');
-      panel.innerHTML = '<strong data-title>商品23526</strong><button type="button" data-fold aria-label="收起或展开">收起</button><div data-content><p data-message role="status" aria-live="polite"></p><select aria-label="目标商品规格" disabled></select><div class="loon-actions"><button type="button" data-refresh>刷新规格</button><button type="button" data-add disabled>加入购物车 · 23526</button></div><small>仅加购，不自动下单。实际价格和资格以购物车为准。</small></div>';
-      document.body.appendChild(panel);
+      panel.innerHTML = '<div class="loon-heading"><strong data-title>商品23526辅助工具</strong><button type="button" data-fold aria-expanded="false" aria-controls="loon-mid23526-content">展开</button></div><div data-content id="loon-mid23526-content" hidden><p data-message role="status" aria-live="polite"></p><select aria-label="目标商品规格" disabled></select><div class="loon-actions"><button type="button" data-refresh>刷新规格</button><button type="button" data-add disabled>加入购物车 · 23526</button></div><small>仅加购，不自动下单。实际价格和资格以购物车为准。</small></div>';
+      // 位于Vue应用外的普通文档流中；展开只推开后续内容，不覆盖原页面。
+      document.body.insertBefore(panel, document.body.firstChild);
+      panel.querySelector('[data-content]').hidden = !expanded;
+      panel.querySelector('[data-fold]').textContent = expanded ? '收起' : '展开';
+      panel.querySelector('[data-fold]').setAttribute('aria-expanded', String(expanded));
       message = panel.querySelector('[data-message]'); select = panel.querySelector('select');
       refreshButton = panel.querySelector('[data-refresh]'); addButton = panel.querySelector('[data-add]');
       refreshButton.onclick = load; addButton.onclick = add;
       select.onchange = function () { addButton.disabled = busy || !select.value; };
       panel.querySelector('[data-fold]').onclick = function () {
-        var content = panel.querySelector('[data-content]'); content.hidden = !content.hidden;
-        this.textContent = content.hidden ? '展开' : '收起';
+        expanded = !expanded;
+        panel.querySelector('[data-content]').hidden = !expanded;
+        this.textContent = expanded ? '收起' : '展开';
+        this.setAttribute('aria-expanded', String(expanded));
       };
       if (targetPage) document.title = '商品23526 · 移动爱购';
       load();

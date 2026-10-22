@@ -1,5 +1,5 @@
 #!name = 移动爱购23526页面辅助与加购
-#!desc = 尝试重读商品23526真实规格，注入加购面板；目标及参考页的原生加购替换为目标真实规格。取不到规格时停止提交。
+#!desc = 尝试重读商品23526真实规格，注入默认折叠的页内加购面板；目标及参考页的原生加购替换为目标真实规格。取不到规格时停止提交。
 #!author = Codex
 #!homepage = https://github.com/doosit/script
 #!date = 2026-10-22
@@ -7,9 +7,9 @@
 # 直接导入此插件，Loon会下载下面的远程脚本。
 # 使用官方继续兼容的旧语法，避免要求未知的用户版本升级。
 [Script]
-http-request ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/(?:detail|newdetail2026)\?(?:[^#]*&)?mid=(?:23526|22409)(?:&|$) script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc-23526.js?v=20261022-1,requires-body=true,timeout=35,tag=23526页面缓存刷新
-http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/(?:detail|newdetail2026)\?(?:[^#]*&)?mid=(?:23526|22409)(?:&|$) script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc-23526.js?v=20261022-1,requires-body=true,timeout=35,tag=23526页面按钮
-http-request ^https:\/\/dev\.coc\.10086\.cn\/coc3\/(?:__loon_mid23526\/(?:info|add)$|coc3-market\/api\/market\/external\/shoppingCart\/add(?:\?|$)) script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc-23526.js?v=20261022-1,requires-body=true,timeout=35,tag=23526真实规格加购
+http-request ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/(?:detail|newdetail2026)\?(?:[^#]*&)?mid=(?:23526|22409)(?:&|$) script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc-23526.js?v=20261022-2,requires-body=true,timeout=35,tag=23526页面缓存刷新
+http-response ^https:\/\/dev\.coc\.10086\.cn\/coc3\/canvas\/rightsmarket-h5-canvas\/online\/(?:detail|newdetail2026)\?(?:[^#]*&)?mid=(?:23526|22409)(?:&|$) script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc-23526.js?v=20261022-2,requires-body=true,timeout=35,tag=23526页面按钮
+http-request ^https:\/\/dev\.coc\.10086\.cn\/coc3\/(?:__loon_mid23526\/(?:info|add)$|coc3-market\/api\/market\/external\/shoppingCart\/add(?:\?|$)) script-path=https://raw.githubusercontent.com/doosit/script/main/cmcc-23526.js?v=20261022-2,requires-body=true,timeout=35,tag=23526真实规格加购
 
 [MITM]
 hostname = dev.coc.10086.cn
